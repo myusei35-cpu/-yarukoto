@@ -36,6 +36,7 @@
   /* list */
   #list{padding:0 14px}
   .card{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:14px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; position:relative; cursor:pointer}
+  .card .thumb{width:54px; height:54px; object-fit:cover; border-radius:10px; flex:0 0 auto; margin-left:8px}
   .card .ttl{font-size:22px; font-weight:700; line-height:1.35; flex:1}
   .card .meta{font-size:16px; color:var(--sub); margin-top:4px}
   .ring{flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:3px solid var(--orange); background:transparent; color:#fff; font-size:19px; line-height:1; cursor:pointer; margin-top:2px}
@@ -304,6 +305,7 @@ function cardHtml(t, done){
     <button class="ring ${done?'done':''}" onclick="event.stopPropagation(); toggleDone('${t.id}', ${done?0:1})">${done?'✓':''}</button>
     <div style="flex:1"><div class="ttl">${esc(t.title)}</div>${meta.length?`<div class="meta">${esc(meta.join('　'))}</div>`:''}</div>
     ${t.unread && !done ? '<div class="dot"></div>':''}
+    ${thumbOf_(t.id)}
   </div>`;
 }
 function renderList(){
@@ -314,9 +316,19 @@ function renderList(){
   if(done.length){ h += '<div class="doneSec">完了タスク</div>' + done.map(t=>cardHtml(t,true)).join(''); }
   $('list').innerHTML = h;
 }
+function thumbOf_(todoId){
+  const ph = (B.photos||[]).find(p=>p.todo_id===todoId);
+  return ph ? `<img class="thumb" src="${esc(ph.url)}" loading="lazy">` : '';
+}
+function saveCache_(){ try { localStorage.setItem('yk_cache', JSON.stringify(B)); } catch(e){} }
 async function toggleDone(id, done){
-  await run('setDone', id, !!done, ID);
-  await load();
+  const t = (B.todos||[]).find(x=>x.id===id); if(!t) return;
+  const prev = t.done;
+  t.done = done ? 1 : 0;
+  renderList(); renderAgenda();
+  try { await run('setDone', id, !!done, ID); saveCache_(); }
+  catch(e){ t.done = prev; renderList(); renderAgenda(); toast('保存に失敗しました'); return; }
+  load().catch(()=>{});
 }
 
 function renderAgenda(){
@@ -327,7 +339,7 @@ function renderAgenda(){
   dated.forEach(t=>{
     if(t.due_date!==last){ last=t.due_date; h += `<div class="agendaDate">${fmtDue(t).split(' ')[0]}</div>`; }
     const cat = B.categories.find(c=>c.id===t.category_id);
-    h += `<div class="card" onclick="openDetail('${t.id}')"><div style="flex:1"><div class="ttl">${esc(t.title)}</div><div class="meta">${esc(cat?cat.name:'')}${t.due_time?'　'+esc(t.due_time):''}</div></div></div>`;
+    h += `<div class="card" onclick="openDetail('${t.id}')"><div style="flex:1"><div class="ttl">${esc(t.title)}</div><div class="meta">${esc(cat?cat.name:'')}${t.due_time?'　'+esc(t.due_time):''}</div></div>${thumbOf_(t.id)}</div>`;
   });
   $('agenda').innerHTML = h;
 }
