@@ -1,6 +1,6 @@
 // やること共有 service worker: always fetch the newest page (auto-update),
 // cache only icons/manifest for offline shell.
-const CACHE = 'yk-shell-v1';
+const CACHE = 'yk-shell-v2';
 const SHELL = ['icon-192.png', 'icon-512.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -19,8 +19,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return; // API calls: always live network
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
-    // Network first: new versions apply on next open automatically.
-    e.respondWith(fetch(e.request).catch(() => caches.match('index.html')));
+    // Network first, bypassing the HTTP cache: GitHub Pages answers with
+    // max-age=600, which used to serve the previous page for up to 10 min.
+    e.respondWith(fetch(e.request.url, { cache: 'no-store' }).catch(() => caches.match('index.html')));
     return;
   }
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
