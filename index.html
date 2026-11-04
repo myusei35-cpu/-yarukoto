@@ -353,6 +353,10 @@ function renderPager(){
   const i = Math.max(0, cats.findIndex(c=>c.id===curCat));
   p.scrollLeft = i * p.clientWidth;
   p.querySelectorAll('.plist').forEach(el => { if(prevScroll[el.dataset.cat]) el.scrollTop = prevScroll[el.dataset.cat]; });
+  p.querySelectorAll('.page').forEach(pg => {
+    const row = pg.querySelector('.chips'), on = row && row.querySelector('.chip.on');
+    if(row && on) row.scrollLeft = Math.max(0, on.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft - 14);
+  });
   if(!p.dataset.bound){
     p.dataset.bound = '1';
     let tm = null;
