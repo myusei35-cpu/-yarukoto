@@ -36,7 +36,7 @@
   /* list */
   #list{padding:0 14px}
   .card{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:14px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; position:relative; cursor:pointer}
-  .card .thumb{width:54px; height:54px; object-fit:cover; border-radius:10px; flex:0 0 auto; margin-left:8px}
+  .card .thumb{width:84px; height:84px; object-fit:cover; border-radius:10px; flex:0 0 auto; margin-left:8px}
   .card .ttl{font-size:22px; font-weight:700; line-height:1.35; flex:1}
   .card .meta{font-size:16px; color:var(--sub); margin-top:4px}
   .ring{flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:3px solid var(--orange); background:transparent; color:#fff; font-size:19px; line-height:1; cursor:pointer; margin-top:2px}
@@ -310,7 +310,13 @@ function cardHtml(t, done){
 }
 function renderList(){
   const items = B.todos.filter(t=>t.category_id===curCat);
-  const open = items.filter(t=>!Number(t.done)).sort((a,z)=>a.sort-z.sort);
+  const open = items.filter(t=>!Number(t.done)).sort((a,z)=>{
+    const ad = a.due_date || '9999-99-99', zd = z.due_date || '9999-99-99';
+    if(ad !== zd) return ad < zd ? -1 : 1;
+    const at = a.due_time || '', zt = z.due_time || '';
+    if(at !== zt) return at < zt ? -1 : 1;
+    return a.sort - z.sort;
+  });
   const done = items.filter(t=>Number(t.done)).sort((a,z)=>a.sort-z.sort);
   let h = open.length ? open.map(t=>cardHtml(t,false)).join('') : '<div class="empty">まだ何もありません。下の＋から追加できます</div>';
   if(done.length){ h += '<div class="doneSec">完了タスク</div>' + done.map(t=>cardHtml(t,true)).join(''); }
