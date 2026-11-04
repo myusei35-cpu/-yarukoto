@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#FFF9EC; --card:#FFFFFF; --ink:#3A332A; --sub:#8A7F6D;
+    --cream:#FFDF8E; --orange:#F59E0B; --orange-d:#D97706; --line:#F0E4C8;
+    --danger:#DC2626;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1C1917; --card:#292524; --ink:#F5F0E6; --sub:#A89F8D; --line:#44403C; --cream:#92600A; }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0; font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; background:var(--bg); color:var(--ink); font-size:19px; padding-bottom:150px}
+  header{position:sticky; top:0; z-index:5; background:var(--bg); padding:12px 14px 6px; font-weight:800; font-size:22px}
+  header .me{font-size:13px; color:var(--sub); font-weight:400}
+  /* category chips */
+  #chips{display:flex; gap:8px; overflow-x:auto; padding:8px 14px 12px; scrollbar-width:none}
+  #chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto; padding:10px 16px; border-radius:999px; background:var(--card); border:2px solid var(--line); font-size:17px; font-weight:700; cursor:pointer; white-space:nowrap}
+  .chip.on{background:var(--orange); border-color:var(--orange); color:#fff}
+  .chip.add{color:var(--sub)}
+  /* list */
+  #list{padding:0 14px}
+  .card{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:14px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; position:relative; cursor:pointer}
+  .card .ttl{font-size:20px; font-weight:700; line-height:1.35; flex:1}
+  .card .meta{font-size:14px; color:var(--sub); margin-top:4px}
+  .ring{flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:3px solid var(--orange); background:transparent; color:#fff; font-size:19px; line-height:1; cursor:pointer; margin-top:2px}
+  .ring.done{background:var(--orange)}
+  .dot{position:absolute; top:10px; right:12px; width:11px; height:11px; border-radius:50%; background:#EF4444}
+  .doneSec{margin:18px 0 8px; color:var(--sub); font-weight:700; font-size:16px}
+  .card.done .ttl{text-decoration:line-through; color:var(--sub)}
+  .empty{color:var(--sub); text-align:center; padding:30px 0}
+  /* FAB + bottom nav */
+  #fab{position:fixed; right:18px; bottom:92px; z-index:8; width:64px; height:64px; border-radius:50%; border:none; background:var(--orange); color:#fff; font-size:36px; box-shadow:0 6px 16px rgba(0,0,0,.25); cursor:pointer}
+  nav{position:fixed; left:0; right:0; bottom:0; z-index:7; display:flex; background:var(--card); border-top:2px solid var(--line)}
+  nav button{flex:1; background:none; border:none; padding:12px 0 16px; font-size:16px; font-weight:700; color:var(--sub); cursor:pointer}
+  nav button.on{color:var(--orange-d)}
+  /* sheets / detail */
+  .sheet{position:fixed; inset:0; z-index:20; background:var(--bg); overflow-y:auto; padding:16px 14px 40px; display:none}
+  .sheet.open{display:block}
+  .sheet h2{font-size:20px; margin:4px 0 14px}
+  .row{margin-bottom:16px}
+  .row label{display:block; font-size:14px; color:var(--sub); margin-bottom:6px; font-weight:700}
+  input[type=text],input[type=date],input[type=time],input[type=datetime-local],textarea,select{
+    width:100%; font-size:19px; padding:12px; border-radius:12px; border:2px solid var(--line); background:var(--card); color:var(--ink)}
+  textarea{min-height:84px}
+  .btn{display:inline-block; padding:12px 20px; border-radius:999px; border:2px solid var(--line); background:var(--card); font-size:17px; font-weight:700; cursor:pointer; color:var(--ink)}
+  .btn.primary{background:var(--orange); border-color:var(--orange); color:#fff}
+  .btn.danger{color:var(--danger); border-color:var(--danger)}
+  .btn.small{padding:8px 14px; font-size:15px}
+  .quick{display:flex; gap:8px; flex-wrap:wrap}
+  .avatars{display:flex; gap:10px; flex-wrap:wrap}
+  .ava{text-align:center; cursor:pointer; opacity:.45}
+  .ava.sel{opacity:1}
+  .ava .face{width:52px; height:52px; border-radius:50%; background:var(--cream); display:flex; align-items:center; justify-content:center; font-size:26px; border:3px solid transparent}
+  .ava.sel .face{border-color:var(--orange)}
+  .ava .nm{font-size:12px; margin-top:2px; max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .toggle{display:flex; border:2px solid var(--line); border-radius:999px; overflow:hidden}
+  .toggle button{flex:1; padding:10px; font-size:17px; font-weight:700; background:var(--card); border:none; color:var(--sub); cursor:pointer}
+  .toggle button.on{background:var(--orange); color:#fff}
+  .subrow,.comrow{display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--line)}
+  .photos{display:flex; gap:10px; flex-wrap:wrap}
+  .photos img{width:96px; height:96px; object-fit:cover; border-radius:12px}
+  .topbar{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+  .back{background:none; border:none; font-size:24px; color:var(--ink); cursor:pointer; padding:4px 8px}
+  .agendaDate{font-weight:800; margin:16px 0 8px}
+  #toast{position:fixed; left:50%; transform:translateX(-50%); bottom:170px; z-index:50; background:#111; color:#fff; padding:10px 18px; border-radius:999px; font-size:15px; display:none}
+  .hidden{display:none !important}
+  #lock{position:fixed; inset:0; z-index:70; background:var(--bg); display:none; padding:40px 22px; text-align:center}
+  #lock.open{display:block}
+  #lock .big{font-size:64px; margin:26px 0 8px}
+  #lock h1{font-size:24px; margin:6px 0}
+  #lock p{color:var(--sub); font-size:16px}
+  #picker{position:fixed; inset:0; z-index:60; background:var(--bg); display:none; padding:28px 18px}
+  #picker.open{display:block}
+  #picker h1{font-size:24px; margin:10px 0 6px}
+  #picker p{color:var(--sub); font-size:16px}
+  .whoBtn{display:flex; align-items:center; gap:14px; width:100%; padding:18px; margin-top:12px; border-radius:16px; border:2px solid var(--line); background:var(--card); font-size:21px; font-weight:800; color:var(--ink); cursor:pointer}
+  .whoBtn .face{width:52px; height:52px; border-radius:50%; background:var(--cream); display:flex; align-items:center; justify-content:center; font-size:26px}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div class="big">🔐</div>
+  <h1>やること共有</h1>
+  <p>本人確認をしてください</p>
+  <button class="btn primary" style="width:100%; margin-top:18px" onclick="bioUnlock()">指紋・顔で開く</button>
+  <p id="lockMsg" style="margin-top:14px"></p>
+</div>
+<div id="picker">
+  <h1>やること共有</h1>
+  <p>あなたはだれですか？（この機械では1回だけ聞きます）</p>
+  <div id="pickerList"></div>
+</div>
+<header>やること <span class="me" id="meLabel"></span></header>
+<div id="view-list">
+  <div id="chips"></div>
+  <div id="list"><div class="empty">読み込み中…</div></div>
+</div>
+<div id="view-cal" class="hidden" style="padding:0 14px"><div id="agenda"></div></div>
+<div id="view-set" class="hidden" style="padding:0 14px">
+  <div class="row"><label>使う人</label>
+    <div style="display:flex; gap:8px; align-items:center"><span id="whoNow" style="font-weight:700"></span><button class="btn small" onclick="switchUser()">切り替える</button></div>
+  </div>
+  <div class="row"><label>指紋・顔ロック</label>
+    <div style="display:flex; gap:8px; align-items:center"><span id="bioState" style="font-weight:700"></span><button class="btn small" id="bioBtn" onclick="bioToggle()">設定する</button></div>
+  </div>
+  <div class="row"><label>メンバー</label><div id="memberList"></div>
+    <div style="display:flex; gap:8px; margin-top:8px">
+      <input type="text" id="newMemberName" placeholder="名前" style="flex:1">
+      <input type="text" id="newMemberEmail" placeholder="メールアドレス" style="flex:2">
+    </div>
+    <button class="btn small" style="margin-top:8px" onclick="addMember()">メンバーを追加（招待）</button>
+  </div>
+  <div class="row"><label>カテゴリー</label><div id="catList"></div></div>
+  <div class="row"><label>初期セットアップ</label>
+    <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
+    <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
+  </div>
+</div>
+
+<button id="fab" onclick="openComposer()">＋</button>
+<nav>
+  <button id="nav-list" class="on" onclick="showView('list')">やること</button>
+  <button id="nav-cal" onclick="showView('cal')">カレンダー</button>
+  <button id="nav-set" onclick="showView('set')">設定</button>
+</nav>
+<div id="toast"></div>
+
+<!-- composer -->
+<div class="sheet" id="composer">
+  <div class="topbar"><button class="back" onclick="closeComposer()">‹</button><h2 style="margin:0">追加</h2></div>
+  <div class="row"><div class="toggle">
+    <button id="mode-task" class="on" onclick="setMode('task')">タスク</button>
+    <button id="mode-event" onclick="setMode('event')">予定</button>
+  </div></div>
+  <div class="row"><label>カテゴリー</label><div id="compCat" style="font-weight:700"></div></div>
+  <div class="row"><label id="compTitleLabel">何をしますか？</label><input type="text" id="compTitle" placeholder="タイトル"></div>
+  <div id="taskFields">
+    <div class="row"><label>期限</label>
+      <div class="quick" style="margin-bottom:8px">
+        <button class="btn small" onclick="quickDate('today')">今日</button>
+        <button class="btn small" onclick="quickDate('tomorrow')">明日</button>
+        <button class="btn small" onclick="quickDate('weekend')">週末（土）</button>
+        <button class="btn small" onclick="quickDate('')">なし</button>
+      </div>
+      <div style="display:flex; gap:8px"><input type="date" id="compDueDate"><input type="time" id="compDueTime"></div>
+    </div>
+    <div class="row"><label>リマインダー（通知する日時）</label><input type="datetime-local" id="compRemind"></div>
+  </div>
+  <div id="eventFields" class="hidden">
+    <div class="row"><label>終日</label><input type="checkbox" id="compAllDay" onchange="toggleAllDay()"> 終日</div>
+    <div class="row"><label>開始</label><div style="display:flex; gap:8px"><input type="date" id="compStartDate"><input type="time" id="compStartTime"></div></div>
+    <div class="row"><label>終了</label><div style="display:flex; gap:8px"><input type="date" id="compEndDate"><input type="time" id="compEndTime"></div></div>
+    <div class="row"><label>場所</label><input type="text" id="compLocation"></div>
+  </div>
+  <div class="row"><label>メモ・URL</label><textarea id="compMemo"></textarea></div>
+  <div class="row"><label>担当</label><div class="avatars" id="compAva"></div></div>
+  <div class="row" style="display:flex; gap:10px">
+    <button class="btn primary" style="flex:1" onclick="submitComposer()">追加する</button>
+  </div>
+</div>
+
+<!-- detail -->
+<div class="sheet" id="detail">
+  <div class="topbar"><button class="back" onclick="closeDetail()">‹</button><h2 style="margin:0">詳細</h2></div>
+  <div class="row"><input type="text" id="dTitle" style="font-weight:700"></div>
+  <div class="row"><label>担当</label><div class="avatars" id="dAva"></div></div>
+  <div class="row"><label>期限</label>
+    <div class="quick" style="margin-bottom:8px">
+      <button class="btn small" onclick="dQuick('today')">今日</button>
+      <button class="btn small" onclick="dQuick('tomorrow')">明日</button>
+      <button class="btn small" onclick="dQuick('weekend')">週末（土）</button>
+      <button class="btn small" onclick="dQuick('')">なし</button>
+    </div>
+    <div style="display:flex; gap:8px"><input type="date" id="dDueDate"><input type="time" id="dDueTime"></div>
+  </div>
+  <div class="row"><label>リマインダー（通知する日時）</label><input type="datetime-local" id="dRemind"></div>
+  <div class="row"><label>ラベル</label><input type="text" id="dLabel"></div>
+  <div class="row"><label>メモ・URL</label><textarea id="dMemo"></textarea></div>
+  <div class="row"><label>写真</label>
+    <div class="photos" id="dPhotos"></div>
+    <form id="photoForm" style="margin-top:8px">
+      <input type="hidden" name="todoId" id="photoTodoId">
+      <input type="file" name="photo" accept="image/*" id="photoInput">
+      <button class="btn small" type="button" onclick="uploadPhoto()">写真を追加</button>
+    </form>
+  </div>
+  <div class="row"><label>サブタスク</label><div id="dSubs"></div>
+    <div style="display:flex; gap:8px; margin-top:8px"><input type="text" id="newSub" placeholder="サブタスク"><button class="btn small" onclick="addSub()">追加</button></div>
+  </div>
+  <div class="row"><label>コメント</label><div id="dComments"></div>
+    <div style="display:flex; gap:8px; margin-top:8px"><input type="text" id="newComment" placeholder="コメント"><button class="btn small" onclick="addComment()">送信</button></div>
+  </div>
+  <div class="row" style="display:flex; gap:10px">
+    <button class="btn primary" style="flex:1" onclick="saveDetail()">保存</button>
+    <button class="btn danger" onclick="delTodo()">削除</button>
+  </div>
+</div>
+
+<script>
+let B = null;            // bootstrap data
+let ID = localStorage.getItem('yk_me') || '';  // this device's person (member email)
+let curCat = null;       // current category id
+let mode = 'task';
+let curTodo = null;      // detail todo
+let selAva = new Set();  // composer assignees
+let dSelAva = new Set(); // detail assignees
+
+const $ = id => document.getElementById(id);
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2200); }
+const API_BASE = 'https://script.google.com/macros/s/AKfycbxNwCzxE-hH1G3w9Nw92ZEZaeOAblZ_6rJa255clPc2KWqAYXJ1Va6evhM2dPHlnpSgUw/exec';
+let KEY = new URLSearchParams(location.search).get('k') || localStorage.getItem('yk_key') || '';
+if(KEY) localStorage.setItem('yk_key', KEY);
+async function run(fn, ...args){
+  const url = API_BASE + '?api=1&fn=' + encodeURIComponent(fn) + '&key=' + encodeURIComponent(KEY) + '&args=' + encodeURIComponent(JSON.stringify(args));
+  const r = await fetch(url);
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'error');
+  return j.data;
+}
+async function runPost(fn, payload){
+  await fetch(API_BASE, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ fn, key: KEY, args: [payload] }) });
+}
+function fmtDue(t){
+  if(!t.due_date) return '';
+  const p = String(t.due_date).split('-'); if(p.length<3) return '';
+  const d = new Date(p[0], p[1]-1, p[2]);
+  const w = '日月火水木金土'[d.getDay()];
+  let s = `${d.getMonth()+1}月${d.getDate()}日 (${w})`;
+  if(t.due_time) s += ' ' + t.due_time;
+  return s;
+}
+function memberName(email){ const m = (B.members||[]).find(m=>m.email===email); return m ? m.display_name : email; }
+
+async function load(){
+  B = await run('getBootstrap', ID || null);
+  if(!ID || !(B.members||[]).some(m=>m.email===ID)){ showPicker(); }
+  $('meLabel').textContent = memberName(ID || B.me) + ' さん';
+  $('whoNow').textContent = memberName(ID || B.me);
+  if(!curCat && B.categories.length) curCat = [...B.categories].sort((a,z)=>a.sort-z.sort)[0].id;
+  render();
+}
+function showPicker(){
+  $('pickerList').innerHTML = (B.members||[]).map(m=>`<button class="whoBtn" onclick="pickMe('${esc(m.email)}')"><span class="face">${esc(m.avatar||'👤')}</span>${esc(m.display_name)}</button>`).join('');
+  $('picker').classList.add('open');
+}
+async function pickMe(email){
+  ID = email; localStorage.setItem('yk_me', email);
+  $('picker').classList.remove('open');
+  await load();
+}
+function switchUser(){ localStorage.removeItem('yk_me'); ID=''; showPicker(); }
+function render(){ renderChips(); renderList(); renderAgenda(); renderSettings(); }
+
+function renderChips(){
+  const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
+  $('chips').innerHTML = cats.map(c=>`<div class="chip ${c.id===curCat?'on':''}" onclick="pickCat('${c.id}')">${esc(c.name)}</div>`).join('')
+    + `<div class="chip add" onclick="newCategory()">＋ 追加</div>`;
+}
+function pickCat(id){ curCat=id; renderChips(); renderList(); }
+async function newCategory(){
+  const name = prompt('新しいカテゴリー名');
+  if(!name) return;
+  const c = await run('addCategory', name);
+  curCat = c.id; await load(); toast('カテゴリーを追加しました');
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function cardHtml(t, done){
+  const meta = [];
+  const due = fmtDue(t); if(due) meta.push('📅 ' + due);
+  if(t.remind_at) meta.push('🔔');
+  if(t.memo) meta.push('📝');
+  if(t.photoCount) meta.push('🖼 ' + t.photoCount);
+  if(t.commentCount) meta.push('💬 ' + t.commentCount);
+  const asg = String(t.assignees||'').split(',').filter(Boolean).map(memberName).join('・');
+  if(asg) meta.push('👤 ' + asg);
+  return `<div class="card ${done?'done':''}" onclick="openDetail('${t.id}')">
+    <button class="ring ${done?'done':''}" onclick="event.stopPropagation(); toggleDone('${t.id}', ${done?0:1})">${done?'✓':''}</button>
+    <div style="flex:1"><div class="ttl">${esc(t.title)}</div>${meta.length?`<div class="meta">${esc(meta.join('　'))}</div>`:''}</div>
+    ${t.unread && !done ? '<div class="dot"></div>':''}
+  </div>`;
+}
+function renderList(){
+  const items = B.todos.filter(t=>t.category_id===curCat);
+  const open = items.filter(t=>!Number(t.done)).sort((a,z)=>a.sort-z.sort);
+  const done = items.filter(t=>Number(t.done)).sort((a,z)=>a.sort-z.sort);
+  let h = open.length ? open.map(t=>cardHtml(t,false)).join('') : '<div class="empty">まだ何もありません。下の＋から追加できます</div>';
+  if(done.length){ h += '<div class="doneSec">完了タスク</div>' + done.map(t=>cardHtml(t,true)).join(''); }
+  $('list').innerHTML = h;
+}
+async function toggleDone(id, done){
+  await run('setDone', id, !!done, ID);
+  await load();
+}
+
+function renderAgenda(){
+  const dated = B.todos.filter(t=>t.due_date && !Number(t.done))
+    .sort((a,z)=> String(a.due_date) < String(z.due_date) ? -1 : 1);
+  if(!dated.length){ $('agenda').innerHTML = '<div class="empty">期限のあるものはありません</div>'; return; }
+  let h='', last='';
+  dated.forEach(t=>{
+    if(t.due_date!==last){ last=t.due_date; h += `<div class="agendaDate">${fmtDue(t).split(' ')[0]}</div>`; }
+    const cat = B.categories.find(c=>c.id===t.category_id);
+    h += `<div class="card" onclick="openDetail('${t.id}')"><div style="flex:1"><div class="ttl">${esc(t.title)}</div><div class="meta">${esc(cat?cat.name:'')}${t.due_time?'　'+esc(t.due_time):''}</div></div></div>`;
+  });
+  $('agenda').innerHTML = h;
+}
+
+function renderSettings(){
+  $('memberList').innerHTML = (B.members||[]).map(m=>`<div class="subrow"><span>${esc(m.avatar||'👤')}</span><span style="flex:1">${esc(m.display_name)}</span><span style="color:var(--sub); font-size:14px">${esc(m.email)}</span></div>`).join('');
+  $('catList').innerHTML = [...B.categories].sort((a,z)=>a.sort-z.sort).map(c=>`<div class="subrow"><span style="flex:1">${esc(c.name)}</span><button class="btn small" onclick="renameCat('${c.id}','${esc(c.name)}')">名前変更</button></div>`).join('');
+}
+async function renameCat(id, old){
+  const name = prompt('カテゴリー名', old); if(!name || name===old) return;
+  await run('renameCategory', id, name); await load();
+}
+async function addMember(){
+  const name = $('newMemberName').value.trim(), email = $('newMemberEmail').value.trim();
+  if(!email) return toast('メールアドレスを入れてください');
+  await run('addMember', email, name || email);
+  $('newMemberName').value=''; $('newMemberEmail').value='';
+  await load(); toast('メンバーを追加しました');
+}
+async function runSetup(){
+  toast('セットアップ中…');
+  const r = await run('setup');
+  await load(); toast('セットアップ完了');
+}
+
+function showView(v){
+  ['list','cal','set'].forEach(x=>{
+    $('view-'+x).classList.toggle('hidden', x!==v);
+    $('nav-'+x).classList.toggle('on', x===v);
+  });
+  $('fab').style.display = v==='list' ? 'block' : 'none';
+}
+
+/* ---------- composer ---------- */
+function avatarHtml(set){
+  return (B.members||[]).map(m=>`<div class="ava ${set.has(m.email)?'sel':''}" data-email="${esc(m.email)}" onclick="toggleAva(this, '${esc(m.email)}')"><div class="face">${esc(m.avatar||'👤')}</div><div class="nm">${esc(m.display_name)}</div></div>`).join('');
+}
+function toggleAva(el, email){
+  const set = el.closest('#compAva') ? selAva : dSelAva;
+  set.has(email) ? set.delete(email) : set.add(email);
+  el.classList.toggle('sel');
+}
+function openComposer(){
+  mode='task'; setMode('task');
+  selAva = new Set();
+  $('compCat').textContent = (B.categories.find(c=>c.id===curCat)||{}).name || '';
+  $('compTitle').value=''; $('compMemo').value='';
+  $('compDueDate').value=''; $('compDueTime').value=''; $('compRemind').value='';
+  $('compAva').innerHTML = avatarHtml(selAva);
+  $('composer').classList.add('open');
+  setTimeout(()=>$('compTitle').focus(), 100);
+}
+function composerDirty(){ return $('compTitle').value.trim() !== '' || $('compMemo').value.trim() !== ''; }
+function closeComposer(){
+  if(composerDirty() && !confirm('変更を破棄しますか？')) return;
+  $('composer').classList.remove('open');
+}
+function setMode(m){
+  mode=m;
+  $('mode-task').classList.toggle('on', m==='task');
+  $('mode-event').classList.toggle('on', m==='event');
+  $('taskFields').classList.toggle('hidden', m!=='task');
+  $('eventFields').classList.toggle('hidden', m!=='event');
+}
+function dateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function quickTarget(kind){
+  const d = new Date();
+  if(kind==='tomorrow') d.setDate(d.getDate()+1);
+  if(kind==='weekend'){ const add = (6 - d.getDay() + 7) % 7; d.setDate(d.getDate()+add); }
+  return kind==='' ? '' : dateStr(d);
+}
+function quickDate(kind){ $('compDueDate').value = quickTarget(kind); }
+function dQuick(kind){ $('dDueDate').value = quickTarget(kind); $('dDueTime').value = kind==='' ? '' : $('dDueTime').value; }
+function toggleAllDay(){
+  const a = $('compAllDay').checked;
+  $('compStartTime').disabled = a; $('compEndTime').disabled = a;
+}
+async function submitComposer(){
+  const title = $('compTitle').value.trim();
+  if(!title) return toast('タイトルを入れてください');
+  toast('追加中…');
+  if(mode==='task'){
+    await run('addTodo', {
+      category_id: curCat, title,
+      due_date: $('compDueDate').value, due_time: $('compDueTime').value,
+      remind_at: $('compRemind').value ? $('compRemind').value.replace('T',' ') : '',
+      memo: $('compMemo').value, assignees: [...selAva], by: ID,
+    });
+  } else {
+    await run('addEventAsTodo', {
+      category_id: curCat, title, all_day: $('compAllDay').checked,
+      start_date: $('compStartDate').value, start_time: $('compStartTime').value,
+      end_date: $('compEndDate').value, end_time: $('compEndTime').value,
+      location: $('compLocation').value, memo: $('compMemo').value, assignees: [...selAva], by: ID,
+    });
+  }
+  $('composer').classList.remove('open');
+  await load(); toast('追加しました');
+}
+
+/* ---------- detail ---------- */
+async function openDetail(id){
+  const d = await run('getTodoDetail', id);
+  curTodo = d.todo;
+  await run('markSeen', id, ID);
+  const t = curTodo;
+  $('dTitle').value = t.title || '';
+  $('dDueDate').value = t.due_date || '';
+  $('dDueTime').value = t.due_time || '';
+  $('dRemind').value = t.remind_at ? String(t.remind_at).replace(' ', 'T').slice(0,16) : '';
+  $('dLabel').value = t.label || '';
+  $('dMemo').value = t.memo || '';
+  dSelAva = new Set(String(t.assignees||'').split(',').filter(Boolean));
+  $('dAva').innerHTML = avatarHtml(dSelAva);
+  $('dPhotos').innerHTML = (t.photos||[]).map(p=>`<div><img src="${p.url}"><div><button class="btn small danger" onclick="delPhoto('${p.id}')">削除</button></div></div>`).join('');
+  $('photoTodoId').value = t.id;
+  $('dSubs').innerHTML = (t.subtasks||[]).sort((a,z)=>a.sort-z.sort).map(s=>`<div class="subrow"><button class="ring ${Number(s.done)?'done':''}" style="width:28px;height:28px;font-size:15px" onclick="toggleSub('${s.id}', ${Number(s.done)?0:1})">${Number(s.done)?'✓':''}</button><span style="flex:1; ${Number(s.done)?'text-decoration:line-through':''}">${esc(s.title)}</span><button class="btn small danger" onclick="delSub('${s.id}')">削除</button></div>`).join('') || '<div style="color:var(--sub)">サブタスクはありません</div>';
+  const names = {}; (d.members||[]).forEach(m=>names[m.email]=m.display_name);
+  $('dComments').innerHTML = (t.comments||[]).map(c=>`<div class="comrow"><div><div style="font-size:13px; color:var(--sub)">${esc(names[c.author_email]||c.author_email)}　${esc(String(c.created_at).slice(0,16).replace('T',' '))}</div><div>${esc(c.text)}</div></div></div>`).join('') || '<div style="color:var(--sub)">コメントはありません</div>';
+  $('detail').classList.add('open');
+}
+function closeDetail(){ $('detail').classList.remove('open'); load(); }
+async function saveDetail(){
+  toast('保存中…');
+  await run('updateTodo', curTodo.id, {
+    title: $('dTitle').value.trim(), due_date: $('dDueDate').value, due_time: $('dDueTime').value,
+    remind_at: $('dRemind').value ? $('dRemind').value.replace('T',' ') : '',
+    memo: $('dMemo').value, label: $('dLabel').value, assignees: [...dSelAva], by: ID,
+  });
+  closeDetail(); toast('保存しました');
+}
+async function delTodo(){
+  if(!confirm('このTODOを削除しますか？')) return;
+  await run('deleteTodo', curTodo.id);
+  closeDetail(); toast('削除しました');
+}
+async function addSub(){
+  const v = $('newSub').value.trim(); if(!v) return;
+  await run('addSubtask', curTodo.id, v, ID); $('newSub').value=''; openDetail(curTodo.id);
+}
+async function toggleSub(id, done){ await run('setSubtaskDone', id, !!done, ID); openDetail(curTodo.id); }
+async function delSub(id){ await run('deleteSubtask', id, ID); openDetail(curTodo.id); }
+async function addComment(){
+  const v = $('newComment').value.trim(); if(!v) return;
+  await run('addComment', curTodo.id, v, ID); $('newComment').value=''; openDetail(curTodo.id);
+}
+function uploadPhoto(){
+  const inp = $('photoInput');
+  if(!inp.files.length) return toast('写真を選んでください');
+  const file = inp.files[0];
+  toast('アップロード中…');
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const b64 = String(reader.result).split(',')[1] || '';
+    await runPost('uploadPhoto', { todoId: curTodo.id, filename: file.name, mime: file.type || 'image/jpeg', dataB64: b64, by: ID });
+    await new Promise(r => setTimeout(r, 1600));
+    toast('写真を追加しました');
+    openDetail(curTodo.id);
+  };
+  reader.onerror = () => toast('読み込みに失敗しました');
+  reader.readAsDataURL(file);
+}
+async function delPhoto(id){ await run('deletePhoto', id); openDetail(curTodo.id); }
+
+/* ---------- fingerprint / face lock (this device only) ---------- */
+const bioOK = () => !!(window.PublicKeyCredential && navigator.credentials);
+const bioOn = () => !!localStorage.getItem('yk_bio_cred');
+const b64e = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64d = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+function bioRefresh(){ $('bioState').textContent = bioOn() ? 'オン' : 'オフ'; $('bioBtn').textContent = bioOn() ? '解除する' : '設定する'; }
+async function bioToggle(){
+  if(!bioOK()) return toast('この端末・ブラウザでは使えません');
+  if(bioOn()){ localStorage.removeItem('yk_bio_cred'); bioRefresh(); toast('ロックを解除しました'); return; }
+  try {
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: 'やること共有' },
+      user: { id: new TextEncoder().encode(ID || 'user'), name: ID || 'user', displayName: 'やること共有' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+      timeout: 60000,
+    }});
+    localStorage.setItem('yk_bio_cred', b64e(cred.rawId));
+    bioRefresh(); toast('指紋・顔ロックを設定しました');
+  } catch(e){ toast('設定できませんでした'); }
+}
+async function bioUnlock(){
+  try {
+    await navigator.credentials.get({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: 'public-key', id: b64d(localStorage.getItem('yk_bio_cred')) }],
+      userVerification: 'required', timeout: 60000,
+    }});
+    $('lock').classList.remove('open');
+    startLoad();
+  } catch(e){ $('lockMsg').textContent = '確認できませんでした。もう一度試してください。'; }
+}
+/* ---------- startup ---------- */
+let loadStarted = false;
+function startLoad(){
+  if(loadStarted) return; loadStarted = true;
+  load().then(()=>bioRefresh()).catch(e=>{ $('list').innerHTML = '<div class="empty">読み込みに失敗しました。<br><span style="font-size:13px">' + esc((e && e.message) || e || '') + '</span></div>'; });
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if(!reloaded){ reloaded = true; location.reload(); } });
+}
+if(!KEY){
+  $('list').innerHTML = '<div class="empty">鍵付きのリンクから開いてください。<br>（家族から共有されたURLを使ってください）</div>';
+} else if(bioOn()){
+  $('lock').classList.add('open');
+} else {
+  startLoad();
+}
+</script>
+</body>
+</html>

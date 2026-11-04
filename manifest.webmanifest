@@ -1,0 +1,1 @@
+{"background_color":"#FFF8E7","description":"家族で共有する やることリスト","display":"standalone","icons":[{"purpose":"any","sizes":"192x192","src":"icon-192.png","type":"image/png"},{"purpose":"any maskable","sizes":"512x512","src":"icon-512.png","type":"image/png"}],"name":"やること共有","scope":".","short_name":"やること","start_url":".","theme_color":"#FFDF8E"}
