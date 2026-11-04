@@ -289,9 +289,16 @@ async function pickMe(email){
 function switchUser(){ localStorage.removeItem('yk_me'); ID=''; showPicker(); }
 function render(){ renderPager(); renderAgenda(); renderSettings(); }
 
+const CAT_COLORS = ['#E8833A', '#3E8EDE', '#7C5CFC', '#2FA84F', '#E5484D', '#0E9F8A', '#D64570', '#9A7B1E'];
+function catColor(id){
+  const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
+  const i = cats.findIndex(c=>c.id===id);
+  return CAT_COLORS[(i < 0 ? 0 : i) % CAT_COLORS.length];
+}
 function chipsHtml(activeId){
   const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
-  return cats.map(c=>`<div class="chip ${c.id===activeId?'on':''}" onclick="pickCat('${c.id}')">${esc(c.name)}</div>`).join('')
+  const col = catColor(activeId);
+  return cats.map(c=>`<div class="chip ${c.id===activeId?'on':''}" ${c.id===activeId ? `style="background:${col};border-color:${col};color:#fff"` : ''} onclick="pickCat('${c.id}')">${esc(c.name)}</div>`).join('')
     + `<div class="chip add" onclick="newCategory()">＋ 追加</div>`;
 }
 function pickCat(id){
@@ -346,7 +353,7 @@ function renderPager(){
   const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
   const me = esc(memberName(ID || B.me)) + ' さん';
   p.innerHTML = cats.map(c =>
-    `<div class="page"><header>やること <span class="me">${me}</span></header>` +
+    `<div class="page"><header style="background:${catColor(c.id)};color:#fff">やること <span class="me" style="color:rgba(255,255,255,.8)">${me}</span></header>` +
     `<div class="chips">${chipsHtml(c.id)}</div>` +
     `<div class="plist" data-cat="${c.id}">${cardsHtml(c.id)}</div></div>`
   ).join('');
