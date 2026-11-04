@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-04-29">
+<meta name="yk-ver" content="2026-11-04-30">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -139,7 +139,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-29</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-30</span></div>
 </div>
 
 <button id="fab" onclick="openComposer()">＋</button>
@@ -242,11 +242,18 @@ const API_BASE = 'https://script.google.com/macros/s/AKfycbxNwCzxE-hH1G3w9Nw92ZE
 let KEY = new URLSearchParams(location.search).get('k') || localStorage.getItem('yk_key') || '';
 if(KEY) localStorage.setItem('yk_key', KEY);
 async function run(fn, ...args){
-  const url = API_BASE + '?api=1&fn=' + encodeURIComponent(fn) + '&key=' + encodeURIComponent(KEY) + '&args=' + encodeURIComponent(JSON.stringify(args));
-  const r = await fetch(url);
-  const j = await r.json();
-  if(!j.ok) throw new Error(j.error || 'error');
-  return j.data;
+  try {
+    const r = await fetch(API_BASE, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ fn, key: KEY, args }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'error');
+    return j.data;
+  } catch(e) {
+    const url = API_BASE + '?api=1&fn=' + encodeURIComponent(fn) + '&key=' + encodeURIComponent(KEY) + '&args=' + encodeURIComponent(JSON.stringify(args));
+    const r = await fetch(url);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'error');
+    return j.data;
+  }
 }
 async function runPost(fn, payload){
   await fetch(API_BASE, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ fn, key: KEY, args: [payload] }) });
@@ -528,24 +535,41 @@ function toggleAllDay(){
 async function submitComposer(){
   const title = $('compTitle').value.trim();
   if(!title) return toast('タイトルを入れてください');
-  toast('追加中…');
   if(mode==='task'){
-    await run('addTodo', {
+    const payload = {
       category_id: curCat, title,
       due_date: $('compDueDate').value, due_time: $('compDueTime').value,
       remind_at: $('compRemind').value ? $('compRemind').value.replace('T',' ') : '',
       memo: $('compMemo').value, assignees: [...selAva], by: ID,
+    };
+    const tmpId = 'tmp' + Date.now();
+    B.todos.push({ id: tmpId, category_id: curCat, title, done: 0,
+      due_date: payload.due_date, due_time: payload.due_time, remind_at: payload.remind_at,
+      memo: payload.memo, label: '', assignees: payload.assignees.join(','), sort: Date.now(),
+      calendar_event_id: '', created_by: ID, updated_by: ID, photoCount: 0, commentCount: 0, unread: 0 });
+    requestClose_('composer');
+    renderBoard(); toast('追加しました');
+    run('addTodo', payload).then(real => {
+      const t = B.todos.find(x => x.id === tmpId);
+      if(t && real && real.id) t.id = real.id;
+      try { localStorage.setItem('yk_cache', JSON.stringify(B)); } catch(e){}
+    }).catch(() => {
+      B.todos = B.todos.filter(x => x.id !== tmpId);
+      renderBoard(); toast('追加に失敗しました。通信を確認してください');
     });
   } else {
-    await run('addEventAsTodo', {
-      category_id: curCat, title, all_day: $('compAllDay').checked,
-      start_date: $('compStartDate').value, start_time: $('compStartTime').value,
-      end_date: $('compEndDate').value, end_time: $('compEndTime').value,
-      location: $('compLocation').value, memo: $('compMemo').value, assignees: [...selAva], by: ID,
-    });
+    toast('追加中…');
+    try {
+      await run('addEventAsTodo', {
+        category_id: curCat, title, all_day: $('compAllDay').checked,
+        start_date: $('compStartDate').value, start_time: $('compStartTime').value,
+        end_date: $('compEndDate').value, end_time: $('compEndTime').value,
+        location: $('compLocation').value, memo: $('compMemo').value, assignees: [...selAva], by: ID,
+      });
+    } catch(e){ toast('追加に失敗しました。通信を確認してください'); return; }
+    requestClose_('composer');
+    await load(); toast('追加しました');
   }
-  requestClose_('composer');
-  await load(); toast('追加しました');
 }
 
 /* ---------- layered back-button handling ---------- */
@@ -607,13 +631,18 @@ async function openDetail(id){
 }
 function closeDetail(){ requestClose_('detail'); }
 async function saveDetail(){
-  toast('保存中…');
-  await run('updateTodo', curTodo.id, {
+  const fields = {
     title: $('dTitle').value.trim(), due_date: $('dDueDate').value, due_time: $('dDueTime').value,
     remind_at: $('dRemind').value ? $('dRemind').value.replace('T',' ') : '',
     memo: $('dMemo').value, label: $('dLabel').value, assignees: [...dSelAva], by: ID,
-  });
-  closeDetail(); toast('保存しました');
+  };
+  const t = B.todos.find(x => x.id === curTodo.id);
+  if(t){ t.title = fields.title; t.due_date = fields.due_date; t.due_time = fields.due_time;
+    t.remind_at = fields.remind_at; t.memo = fields.memo; t.label = fields.label;
+    t.assignees = fields.assignees.join(','); }
+  const id = curTodo.id;
+  closeDetail(); renderBoard(); toast('保存しました');
+  run('updateTodo', id, fields).catch(() => { load(); toast('保存に失敗しました'); });
 }
 async function delTodo(){
   if(!confirm('このTODOを削除しますか？')) return;
