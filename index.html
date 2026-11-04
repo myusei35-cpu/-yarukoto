@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-04-21">
+<meta name="yk-ver" content="2026-11-04-22">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -139,7 +139,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-21</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-22</span></div>
 </div>
 
 <button id="fab" onclick="openComposer()">＋</button>
@@ -437,10 +437,17 @@ async function deleteCat(id, name){
     ? `「${name}」を削除します。中のタスク ${n} 件も一緒に削除されます。元に戻せません。`
     : `「${name}」を削除します。`;
   if(!confirm(msg)) return;
-  await run('deleteCategory', id);
-  if(curCat === id) curCat = '';
-  await load();
+  B.categories = (B.categories || []).filter(c => c.id !== id);
+  B.todos = (B.todos || []).filter(t => t.category_id !== id);
+  if(curCat === id){
+    const rest = [...B.categories].sort((a, z) => a.sort - z.sort);
+    curCat = rest.length ? rest[0].id : '';
+  }
+  render();
   toast('カテゴリーを削除しました');
+  run('deleteCategory', id)
+    .then(() => { saveCache_(); load().catch(() => {}); })
+    .catch(async () => { await load(); toast('削除に失敗しました'); });
 }
 async function addMember(){
   const name = $('newMemberName').value.trim(), email = $('newMemberEmail').value.trim();
