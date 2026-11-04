@@ -378,12 +378,13 @@ function openComposer(){
   $('compDueDate').value=''; $('compDueTime').value=''; $('compRemind').value='';
   $('compAva').innerHTML = avatarHtml(selAva);
   $('composer').classList.add('open');
+  pushUi_('composer');
   setTimeout(()=>$('compTitle').focus(), 100);
 }
 function composerDirty(){ return $('compTitle').value.trim() !== '' || $('compMemo').value.trim() !== ''; }
 function closeComposer(){
   if(composerDirty() && !confirm('変更を破棄しますか？')) return;
-  $('composer').classList.remove('open');
+  requestClose_('composer');
 }
 function setMode(m){
   mode=m;
@@ -424,16 +425,30 @@ async function submitComposer(){
       location: $('compLocation').value, memo: $('compMemo').value, assignees: [...selAva], by: ID,
     });
   }
-  $('composer').classList.remove('open');
+  requestClose_('composer');
   await load(); toast('追加しました');
 }
 
+/* ---------- layered back-button handling ---------- */
+let uiLayers = [];
+function pushUi_(id){ uiLayers.push(id); try{ history.pushState({yk:id}, ''); }catch(e){} }
+function closeLayerUi_(id){
+  if(id==='detail'){ $('detail').classList.remove('open'); curTodo = null; load(); }
+  if(id==='composer'){ $('composer').classList.remove('open'); }
+}
+function requestClose_(id){
+  const i = uiLayers.lastIndexOf(id);
+  if(i >= 0 && i === uiLayers.length - 1){ history.back(); }
+  else { if(i >= 0) uiLayers.splice(i, 1); closeLayerUi_(id); }
+}
+window.addEventListener('popstate', ()=>{ const id = uiLayers.pop(); if(id) closeLayerUi_(id); });
+
 /* ---------- detail ---------- */
-async function openDetail(id){
-  const d = await run('getTodoDetail', id);
-  curTodo = d.todo;
-  await run('markSeen', id, ID);
-  const t = curTodo;
+let detailSeq = 0, detailDirty = false;
+document.addEventListener('input', e=>{ if(e.target.closest && e.target.closest('#detail')) detailDirty = true; });
+document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('#dAva')) detailDirty = true; });
+function fillDetailCore_(t){
+  curTodo = t;
   $('dTitle').value = t.title || '';
   $('dDueDate').value = t.due_date || '';
   $('dDueTime').value = t.due_time || '';
@@ -442,14 +457,36 @@ async function openDetail(id){
   $('dMemo').value = t.memo || '';
   dSelAva = new Set(String(t.assignees||'').split(',').filter(Boolean));
   $('dAva').innerHTML = avatarHtml(dSelAva);
-  $('dPhotos').innerHTML = (t.photos||[]).map(p=>`<div><img src="${p.url}"><div><button class="btn small danger" onclick="delPhoto('${p.id}')">削除</button></div></div>`).join('');
   $('photoTodoId').value = t.id;
-  $('dSubs').innerHTML = (t.subtasks||[]).sort((a,z)=>a.sort-z.sort).map(s=>`<div class="subrow"><button class="ring ${Number(s.done)?'done':''}" style="width:28px;height:28px;font-size:15px" onclick="toggleSub('${s.id}', ${Number(s.done)?0:1})">${Number(s.done)?'✓':''}</button><span style="flex:1; ${Number(s.done)?'text-decoration:line-through':''}">${esc(s.title)}</span><button class="btn small danger" onclick="delSub('${s.id}')">削除</button></div>`).join('') || '<div style="color:var(--sub)">サブタスクはありません</div>';
+}
+async function openDetail(id){
+  const seq = ++detailSeq;
+  const wasOpen = $('detail').classList.contains('open');
+  const base = (B.todos||[]).find(t=>t.id===id);
+  if(!wasOpen){
+    detailDirty = false;
+    if(base) fillDetailCore_(base);
+    $('dPhotos').innerHTML = '<div style="color:var(--sub)">読み込み中…</div>';
+    $('dSubs').innerHTML = '<div style="color:var(--sub)">読み込み中…</div>';
+    $('dComments').innerHTML = '<div style="color:var(--sub)">読み込み中…</div>';
+    $('detail').classList.add('open');
+    pushUi_('detail');
+    if(base) base.unread = false;
+  }
+  run('markSeen', id, ID).catch(()=>{});
+  let d;
+  try { d = await run('getTodoDetail', id); }
+  catch(e){ if(!wasOpen && !base){ requestClose_('detail'); toast('読み込みに失敗しました'); } return; }
+  if(seq !== detailSeq) return;
+  curTodo = d.todo;
+  if(!detailDirty) fillDetailCore_(d.todo);
+  const t = d.todo;
+  $('dPhotos').innerHTML = (t.photos||[]).map(p=>`<div><img src="${p.url}"><div><button class="btn small danger" onclick="delPhoto('${p.id}')">削除</button></div></div>`).join('');
+  $('dSubs').innerHTML = (t.subtasks||[]).sort((a,z)=>a.sort-z.sort).map(x=>`<div class="subrow"><button class="ring ${Number(x.done)?'done':''}" style="width:28px;height:28px;font-size:15px" onclick="toggleSub('${x.id}', ${Number(x.done)?0:1})">${Number(x.done)?'✓':''}</button><span style="flex:1; ${Number(x.done)?'text-decoration:line-through':''}">${esc(x.title)}</span><button class="btn small danger" onclick="delSub('${x.id}')">削除</button></div>`).join('') || '<div style="color:var(--sub)">サブタスクはありません</div>';
   const names = {}; (d.members||[]).forEach(m=>names[m.email]=m.display_name);
   $('dComments').innerHTML = (t.comments||[]).map(c=>`<div class="comrow"><div><div style="font-size:13px; color:var(--sub)">${esc(names[c.author_email]||c.author_email)}　${esc(String(c.created_at).slice(0,16).replace('T',' '))}</div><div>${esc(c.text)}</div></div></div>`).join('') || '<div style="color:var(--sub)">コメントはありません</div>';
-  $('detail').classList.add('open');
 }
-function closeDetail(){ $('detail').classList.remove('open'); load(); }
+function closeDetail(){ requestClose_('detail'); }
 async function saveDetail(){
   toast('保存中…');
   await run('updateTodo', curTodo.id, {
