@@ -25,14 +25,14 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   body{margin:0; font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; background:var(--bg); color:var(--ink); font-size:21px; display:flex; flex-direction:column; height:100dvh; overflow:hidden}
-  header{flex:0 0 auto; z-index:5; background:var(--bg); padding:12px 14px 6px; font-weight:800; font-size:24px}
+  header{flex:0 0 auto; z-index:5; background:var(--bg); padding:12px 14px 6px; font-weight:800; font-size:24px; transition:background-color .35s}
   #view-list{flex:1; min-height:0; display:flex; flex-direction:column}
   #view-cal, #view-set{flex:1; min-height:0; overflow-y:auto}
   header .me{font-size:15px; color:var(--sub); font-weight:400}
-  /* native sideways pager: one full-width page per category, snap scrolling */
-  #pager{flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none}
-  #pager::-webkit-scrollbar{display:none}
-  .page{flex:0 0 100%; min-width:0; display:flex; flex-direction:column; scroll-snap-align:start; scroll-snap-stop:always}
+  /* one wide canvas: category columns side by side, free continuous sideways scroll */
+  #canvas{flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scrollbar-width:none}
+  #canvas::-webkit-scrollbar{display:none}
+  .col{flex:0 0 100%; min-width:0; display:flex; flex-direction:column}
   /* category chips */
   .chips{display:flex; gap:8px; overflow-x:auto; padding:8px 14px 12px; scrollbar-width:none; flex:0 0 auto}
   .chips::-webkit-scrollbar{display:none}
@@ -113,9 +113,10 @@
   <p>あなたはだれですか？（この機械では1回だけ聞きます）</p>
   <div id="pickerList"></div>
 </div>
-<header id="appHeader" style="display:none">やること <span class="me" id="meLabel"></span></header>
+<header id="appHeader">やること <span class="me" id="meLabel"></span></header>
 <div id="view-list">
-  <div id="pager"></div>
+  <div class="chips" id="chipsRow"></div>
+  <div id="canvas"></div>
 </div>
 <div id="view-cal" class="hidden" style="padding:0 14px 170px"><div id="agenda"></div></div>
 <div id="view-set" class="hidden" style="padding:0 14px 170px">
@@ -287,7 +288,7 @@ async function pickMe(email){
   await load();
 }
 function switchUser(){ localStorage.removeItem('yk_me'); ID=''; showPicker(); }
-function render(){ renderPager(); renderAgenda(); renderSettings(); }
+function render(){ renderBoard(); renderAgenda(); renderSettings(); }
 
 const CAT_COLORS = ['#E8833A', '#3E8EDE', '#7C5CFC', '#2FA84F', '#E5484D', '#0E9F8A', '#D64570', '#9A7B1E'];
 function catColor(id){
@@ -303,10 +304,10 @@ function chipsHtml(activeId){
 }
 function pickCat(id){
   curCat = id;
-  const p = $('pager'); if(!p) return;
+  const cv = $('canvas'); if(!cv) return;
   const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
   const i = cats.findIndex(c=>c.id===id);
-  if(i >= 0) p.scrollTo({ left: i * p.clientWidth, behavior: 'smooth' });
+  if(i >= 0){ cv.scrollTo({ left: i * cv.clientWidth, behavior: 'smooth' }); applyCat_(i); }
 }
 async function newCategory(){
   const name = prompt('新しいカテゴリー名');
@@ -346,35 +347,58 @@ function cardsHtml(catId){
   if(done.length){ h += '<div class="doneSec">完了タスク</div>' + done.map(t=>cardHtml(t,true)).join(''); }
   return h;
 }
-function renderPager(){
-  const p = $('pager'); if(!p) return;
-  const prevScroll = {};
-  p.querySelectorAll('.plist').forEach(el => { prevScroll[el.dataset.cat] = el.scrollTop; });
+function applyCat_(idx){
   const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
-  const me = esc(memberName(ID || B.me)) + ' さん';
-  p.innerHTML = cats.map(c =>
-    `<div class="page"><header style="background:${catColor(c.id)};color:#fff">やること <span class="me" style="color:rgba(255,255,255,.8)">${me}</span></header>` +
-    `<div class="chips">${chipsHtml(c.id)}</div>` +
-    `<div class="plist" data-cat="${c.id}">${cardsHtml(c.id)}</div></div>`
-  ).join('');
+  const c = cats[idx]; if(!c) return;
+  curCat = c.id;
+  const col = catColor(c.id), hd = $('appHeader');
+  if(hd && !$('view-list').classList.contains('hidden')){
+    hd.style.background = col; hd.style.color = '#fff';
+    const me = $('meLabel'); if(me) me.style.color = 'rgba(255,255,255,.85)';
+  }
+  const band = $('chipsRow');
+  if(band){ band.innerHTML = chipsHtml(c.id); syncBand_(); }
+}
+function syncBand_(){
+  const cv = $('canvas'), band = $('chipsRow');
+  if(!cv || !band) return;
+  const cr = cv.scrollWidth - cv.clientWidth, br = band.scrollWidth - band.clientWidth;
+  if(cr > 0 && br > 0) band.scrollLeft = cv.scrollLeft * (br / cr);
+}
+function renderBoard(){
+  const cv = $('canvas'); if(!cv) return;
+  const prevScroll = {};
+  cv.querySelectorAll('.plist').forEach(el => { prevScroll[el.dataset.cat] = el.scrollTop; });
+  const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
+  $('chipsRow').innerHTML = chipsHtml(curCat);
+  cv.innerHTML = cats.map(c => `<div class="col"><div class="plist" data-cat="${c.id}">${cardsHtml(c.id)}</div></div>`).join('');
   const i = Math.max(0, cats.findIndex(c=>c.id===curCat));
-  p.scrollLeft = i * p.clientWidth;
-  p.querySelectorAll('.plist').forEach(el => { if(prevScroll[el.dataset.cat]) el.scrollTop = prevScroll[el.dataset.cat]; });
-  p.querySelectorAll('.page').forEach(pg => {
-    const row = pg.querySelector('.chips'), on = row && row.querySelector('.chip.on');
-    if(row && on) row.scrollLeft = Math.max(0, on.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft - 14);
-  });
-  if(!p.dataset.bound){
-    p.dataset.bound = '1';
-    let tm = null;
-    p.addEventListener('scroll', () => {
-      clearTimeout(tm);
-      tm = setTimeout(() => {
-        if(!p.clientWidth) return;
-        const cs = [...B.categories].sort((a,z)=>a.sort-z.sort);
-        const idx = Math.round(p.scrollLeft / p.clientWidth);
-        if(cs[idx] && cs[idx].id !== curCat) curCat = cs[idx].id;
-      }, 90);
+  cv.scrollLeft = i * cv.clientWidth;
+  cv.querySelectorAll('.plist').forEach(el => { if(prevScroll[el.dataset.cat]) el.scrollTop = prevScroll[el.dataset.cat]; });
+  applyCat_(i);
+  if(!cv.dataset.bound){
+    cv.dataset.bound = '1';
+    let settleTm = null;
+    cv.addEventListener('scroll', () => {
+      if(!cv.clientWidth) return;
+      syncBand_();
+      const idx = Math.round(cv.scrollLeft / cv.clientWidth);
+      const cs = [...B.categories].sort((a,z)=>a.sort-z.sort);
+      if(cs[idx] && cs[idx].id !== curCat) applyCat_(idx);
+      clearTimeout(settleTm);
+      settleTm = setTimeout(() => {
+        if(!cv.clientWidth) return;
+        const target = Math.round(cv.scrollLeft / cv.clientWidth) * cv.clientWidth;
+        if(Math.abs(cv.scrollLeft - target) > 2) cv.scrollTo({ left: target, behavior: 'smooth' });
+      }, 140);
+    }, { passive: true });
+    const band = $('chipsRow');
+    band.addEventListener('scroll', () => {
+      const cr = cv.scrollWidth - cv.clientWidth, br = band.scrollWidth - band.clientWidth;
+      if(cr > 0 && br > 0){
+        const target = band.scrollLeft * (cr / br);
+        if(Math.abs(cv.scrollLeft - target) > 1) cv.scrollLeft = target;
+      }
     }, { passive: true });
   }
 }
@@ -387,9 +411,9 @@ async function toggleDone(id, done){
   const t = (B.todos||[]).find(x=>x.id===id); if(!t) return;
   const prev = t.done;
   t.done = done ? 1 : 0;
-  renderPager(); renderAgenda();
+  renderBoard(); renderAgenda();
   try { await run('setDone', id, !!done, ID); saveCache_(); }
-  catch(e){ t.done = prev; renderPager(); renderAgenda(); toast('保存に失敗しました'); return; }
+  catch(e){ t.done = prev; renderBoard(); renderAgenda(); toast('保存に失敗しました'); return; }
   load().catch(()=>{});
 }
 
@@ -433,7 +457,14 @@ function showView(v){
     $('nav-'+x).classList.toggle('on', x===v);
   });
   $('fab').style.display = v==='list' ? 'block' : 'none';
-  $('appHeader').style.display = v==='list' ? 'none' : 'block';
+  const hd = $('appHeader');
+  if(v === 'list'){
+    const cats2 = [...B.categories].sort((a,z)=>a.sort-z.sort);
+    const idx2 = Math.max(0, cats2.findIndex(c=>c.id===curCat));
+    if(cats2[idx2]){ hd.style.background = catColor(cats2[idx2].id); hd.style.color = '#fff'; const me2 = $('meLabel'); if(me2) me2.style.color = 'rgba(255,255,255,.85)'; }
+  } else {
+    hd.style.background = ''; hd.style.color = ''; const me3 = $('meLabel'); if(me3) me3.style.color = '';
+  }
 }
 
 /* ---------- composer ---------- */
@@ -641,7 +672,7 @@ async function bioUnlock(){
 let loadStarted = false;
 function startLoad(){
   if(loadStarted) return; loadStarted = true;
-  load().then(()=>bioRefresh()).catch(e=>{ $('pager').innerHTML = '<div class="empty" style="padding:20px 14px">読み込みに失敗しました。<br><span style="font-size:13px">' + esc((e && e.message) || e || '') + '</span></div>'; });
+  load().then(()=>bioRefresh()).catch(e=>{ $('canvas').innerHTML = '<div class="empty" style="padding:20px 14px">読み込みに失敗しました。<br><span style="font-size:13px">' + esc((e && e.message) || e || '') + '</span></div>'; });
 }
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
@@ -649,7 +680,7 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange', () => { if(!reloaded){ reloaded = true; location.reload(); } });
 }
 if(!KEY){
-  $('pager').innerHTML = '<div class="empty" style="padding:20px 14px">鍵付きのリンクから開いてください。<br>（家族から共有されたURLを使ってください）</div>';
+  $('canvas').innerHTML = '<div class="empty" style="padding:20px 14px">鍵付きのリンクから開いてください。<br>（家族から共有されたURLを使ってください）</div>';
 } else if(bioOn()){
   $('lock').classList.add('open');
 } else {
