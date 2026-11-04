@@ -223,6 +223,12 @@ let selAva = new Set();  // composer assignees
 let dSelAva = new Set(); // detail assignees
 
 const $ = id => document.getElementById(id);
+// タップ時の短いバイブ（押し心地）: 押せる要素に触れた瞬間に8msだけ鳴らす
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('button, .card, .chip, .tab, .subrow, a, .thumb')) {
+    try { if (navigator.vibrate) navigator.vibrate(8); } catch(_){}
+  }
+}, {passive:true});
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2200); }
 const API_BASE = 'https://script.google.com/macros/s/AKfycbxNwCzxE-hH1G3w9Nw92ZEZaeOAblZ_6rJa255clPc2KWqAYXJ1Va6evhM2dPHlnpSgUw/exec';
 let KEY = new URLSearchParams(location.search).get('k') || localStorage.getItem('yk_key') || '';
