@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-04-30">
+<meta name="yk-ver" content="2026-11-04-31">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -139,7 +139,8 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-30</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-31</span></div>
+  <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
 <button id="fab" onclick="openComposer()">＋</button>
@@ -241,18 +242,19 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='blo
 const API_BASE = 'https://script.google.com/macros/s/AKfycbxNwCzxE-hH1G3w9Nw92ZEZaeOAblZ_6rJa255clPc2KWqAYXJ1Va6evhM2dPHlnpSgUw/exec';
 let KEY = new URLSearchParams(location.search).get('k') || localStorage.getItem('yk_key') || '';
 if(KEY) localStorage.setItem('yk_key', KEY);
+let lastApi_ = '（まだ通信していません）';
 async function run(fn, ...args){
+  const t0 = Date.now();
+  const url = API_BASE + '?api=1&fn=' + encodeURIComponent(fn) + '&key=' + encodeURIComponent(KEY) + '&args=' + encodeURIComponent(JSON.stringify(args));
   try {
-    const r = await fetch(API_BASE, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ fn, key: KEY, args }) });
-    const j = await r.json();
-    if(!j.ok) throw new Error(j.error || 'error');
-    return j.data;
-  } catch(e) {
-    const url = API_BASE + '?api=1&fn=' + encodeURIComponent(fn) + '&key=' + encodeURIComponent(KEY) + '&args=' + encodeURIComponent(JSON.stringify(args));
     const r = await fetch(url);
     const j = await r.json();
     if(!j.ok) throw new Error(j.error || 'error');
+    lastApi_ = fn + ' 成功 ' + ((Date.now() - t0) / 1000).toFixed(1) + '秒';
     return j.data;
+  } catch(e) {
+    lastApi_ = fn + ' 失敗 ' + ((Date.now() - t0) / 1000).toFixed(1) + '秒 ' + String(e && e.message || e);
+    throw e;
   }
 }
 async function runPost(fn, payload){
@@ -277,8 +279,9 @@ function applyB(){
 }
 async function load(){
   let had = false;
-  try { const c = localStorage.getItem('yk_cache'); if(c){ const p = JSON.parse(c); if(p && p.categories){ B = p; had = true; } } } catch(e){}
-  if(had && ID && (B.members||[]).some(m=>m.email===ID)) applyB();  // instant paint from this device's cache
+  const cold = !(B && B.categories && B.categories.length);
+  try { const c = localStorage.getItem('yk_cache'); if(c){ const p = JSON.parse(c); if(p && p.categories){ if(cold) B = p; had = true; } } } catch(e){}
+  if(cold && had && ID && (B.members||[]).some(m=>m.email===ID)) applyB();  // instant paint from this device's cache
   let fresh;
   try { fresh = await run('getBootstrap', ID || null); }
   catch(e){ if(had){ return; } throw e; }
@@ -432,6 +435,7 @@ function renderAgenda(){
 }
 
 function renderSettings(){
+  const al = $('apiLabel'); if(al) al.textContent = lastApi_;
   $('memberList').innerHTML = (B.members||[]).map(m=>`<div class="subrow"><span>${esc(m.avatar||'👤')}</span><span style="flex:1">${esc(m.display_name)}</span><span style="color:var(--sub); font-size:14px">${esc(m.email)}</span></div>`).join('');
   $('catList').innerHTML = [...B.categories].sort((a,z)=>a.sort-z.sort).map(c=>`<div class="subrow"><span style="flex:1">${esc(c.name)}</span><button class="btn small" onclick="renameCat('${c.id}','${esc(c.name)}')">名前変更</button><button class="btn small" onclick="deleteCat('${c.id}','${esc(c.name)}')">削除</button></div>`).join('');
 }
