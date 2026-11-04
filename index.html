@@ -292,26 +292,56 @@ function renderChips(){
     + `<div class="chip add" onclick="newCategory()">＋ 追加</div>`;
 }
 function pickCat(id){ curCat=id; renderChips(); renderList(); }
-/* sideways swipe anywhere on the list switches category (like the old app) */
+/* sideways pager: title + list follow the finger and slide as one page (like the old app) */
 (function(){
-  let sx = null, sy = null;
-  const el = () => $('view-list');
+  let sx = null, sy = null, mode = null, cur = 0;
+  const els = () => [document.querySelector('header'), $('view-list')];
+  const cats = () => [...B.categories].sort((a, z) => a.sort - z.sort);
+  function setT(x, anim){
+    els().forEach(e => { if (!e) return;
+      e.style.transition = anim ? 'transform .18s ease-out' : 'none';
+      e.style.transform = 'translateX(' + x + 'px)';
+    });
+  }
+  function clearLater(){ setTimeout(() => els().forEach(e => { if (e) { e.style.transition = ''; e.style.transform = ''; } }), 230); }
   document.addEventListener('touchstart', e => {
     if (e.touches.length !== 1) { sx = null; return; }
-    const t = e.touches[0], host = el();
+    const host = $('view-list');
     if (!host || host.classList.contains('hidden')) { sx = null; return; }
     if (e.target.closest('#chips, .sheet, #lock, #picker, input, textarea, select')) { sx = null; return; }
-    sx = t.clientX; sy = t.clientY;
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; mode = null; cur = 0;
   }, { passive: true });
-  document.addEventListener('touchend', e => {
+  document.addEventListener('touchmove', e => {
     if (sx === null) return;
-    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-    sx = null;
-    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
-    const cats = [...B.categories].sort((a, z) => a.sort - z.sort);
-    const i = cats.findIndex(c => c.id === curCat);
-    const n = dx < 0 ? i + 1 : i - 1;
-    if (i >= 0 && n >= 0 && n < cats.length) { pickCat(cats[n].id); if (navigator.vibrate) navigator.vibrate(8); }
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (!mode) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      mode = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      if (mode === 'v') { sx = null; return; }
+    }
+    if (mode === 'h') {
+      e.preventDefault();
+      const cs = cats(), i = cs.findIndex(c => c.id === curCat);
+      let d = dx;
+      if ((i <= 0 && dx > 0) || (i >= cs.length - 1 && dx < 0)) d = dx * 0.35;
+      cur = d; setT(d, false);
+    }
+  }, { passive: false });
+  document.addEventListener('touchend', () => {
+    if (sx === null || mode !== 'h') { sx = null; mode = null; return; }
+    sx = null; mode = null;
+    const w = window.innerWidth, dx = cur, cs = cats(), i = cs.findIndex(c => c.id === curCat);
+    const go = Math.abs(dx) > Math.min(90, w * 0.25) ? (dx < 0 ? i + 1 : i - 1) : i;
+    if (go !== i && go >= 0 && go < cs.length) {
+      setT(dx < 0 ? -w : w, true);
+      setTimeout(() => {
+        pickCat(cs[go].id);
+        setT(dx < 0 ? w : -w, false);
+        requestAnimationFrame(() => requestAnimationFrame(() => { setT(0, true); clearLater(); }));
+      }, 185);
+      if (navigator.vibrate) navigator.vibrate(8);
+    } else { setT(0, true); clearLater(); }
   }, { passive: true });
 })();
 async function newCategory(){
