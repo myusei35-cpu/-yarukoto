@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-04-18">
+<meta name="yk-ver" content="2026-11-04-19">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -31,9 +31,9 @@
   #view-cal, #view-set{flex:1; min-height:0; overflow-y:auto}
   header .me{font-size:15px; color:var(--sub); font-weight:400}
   /* one wide canvas: category columns side by side, free continuous sideways scroll */
-  #canvas{flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scrollbar-width:none}
+  #canvas{flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; scroll-snap-type:x proximity}
   #canvas::-webkit-scrollbar{display:none}
-  .col{flex:0 0 100%; min-width:0; display:flex; flex-direction:column; margin-right:24px}
+  .col{flex:0 0 100%; min-width:0; display:flex; flex-direction:column; margin-right:24px; scroll-snap-align:start}
   /* category chips */
   .chips{display:flex; gap:8px; overflow-x:auto; padding:8px 14px 12px; scrollbar-width:none; flex:0 0 auto}
   .chips::-webkit-scrollbar{display:none}
@@ -139,7 +139,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-18</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-04-19</span></div>
 </div>
 
 <button id="fab" onclick="openComposer()">＋</button>
@@ -347,24 +347,22 @@ function applyCat_(idx){
   const c = cats[idx]; if(!c) return;
   curCat = c.id;
   const band = $('chipsRow');
-  if(band){ band.innerHTML = chipsHtml(c.id); syncBand_(); }
+  if(band) [...band.children].forEach((el, j) => el.classList.toggle('on', j === idx));
 }
 function pitch_(){ const cv = $('canvas'); return cv ? cv.clientWidth + 24 : 0; }
-function bandTargets_(){
-  const band = $('chipsRow'); if(!band) return [];
+let bandTg_ = [];
+function cacheBandTargets_(){
+  const band = $('chipsRow'); if(!band){ bandTg_ = []; return; }
   const max = band.scrollWidth - band.clientWidth;
-  return [...band.querySelectorAll('.chip')].slice(0, B.categories.length)
+  bandTg_ = [...band.querySelectorAll('.chip')].slice(0, B.categories.length)
     .map(ch => Math.max(0, Math.min(max, ch.offsetLeft - 45)));
 }
-let syncGuard_ = 0;
 function syncBand_(){
   const cv = $('canvas'), band = $('chipsRow');
   if(!cv || !band) return;
-  if(Date.now() - syncGuard_ < 150) return;
   const P = pitch_(); if(!P) return;
-  const tg = bandTargets_(); if(tg.length < 2){ band.scrollLeft = tg[0] || 0; return; }
+  const tg = bandTg_; if(tg.length < 2){ band.scrollLeft = tg[0] || 0; return; }
   const f = cv.scrollLeft / P, i = Math.min(tg.length - 2, Math.max(0, Math.floor(f))), fr = Math.max(0, Math.min(1, f - i));
-  syncGuard_ = Date.now();
   band.scrollLeft = tg[i] + (tg[i + 1] - tg[i]) * fr;
 }
 function renderBoard(){
@@ -377,35 +375,23 @@ function renderBoard(){
   const i = Math.max(0, cats.findIndex(c=>c.id===curCat));
   cv.scrollLeft = i * pitch_();
   cv.querySelectorAll('.plist').forEach(el => { if(prevScroll[el.dataset.cat]) el.scrollTop = prevScroll[el.dataset.cat]; });
+  cacheBandTargets_();
   applyCat_(i);
+  syncBand_();
   if(!cv.dataset.bound){
     cv.dataset.bound = '1';
-    let settleTm = null;
+    let ticking = false;
     cv.addEventListener('scroll', () => {
-      if(!cv.clientWidth) return;
-      syncBand_();
-      const idx = Math.round(cv.scrollLeft / pitch_());
-      const cs = [...B.categories].sort((a,z)=>a.sort-z.sort);
-      if(cs[idx] && cs[idx].id !== curCat) applyCat_(idx);
-      clearTimeout(settleTm);
-      settleTm = setTimeout(() => {
+      if(ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
         if(!cv.clientWidth) return;
-        const target = Math.round(cv.scrollLeft / pitch_()) * pitch_();
-        if(Math.abs(cv.scrollLeft - target) > 2) cv.scrollTo({ left: target, behavior: 'smooth' });
-      }, 140);
-    }, { passive: true });
-    const band = $('chipsRow');
-    band.addEventListener('scroll', () => {
-      if(Date.now() - syncGuard_ < 150) return;
-      const tg = bandTargets_(), P = pitch_();
-      if(tg.length < 2 || !P) return;
-      const pos = band.scrollLeft;
-      let i = 0;
-      while(i < tg.length - 2 && pos > tg[i + 1]) i++;
-      const span = (tg[i + 1] - tg[i]) || 1;
-      const f = i + Math.max(0, Math.min(1, (pos - tg[i]) / span));
-      const target = f * P;
-      if(Math.abs(cv.scrollLeft - target) > 1){ syncGuard_ = Date.now(); cv.scrollLeft = target; }
+        syncBand_();
+        const idx = Math.round(cv.scrollLeft / pitch_());
+        const cs = [...B.categories].sort((a,z)=>a.sort-z.sort);
+        if(cs[idx] && cs[idx].id !== curCat) applyCat_(idx);
+      });
     }, { passive: true });
   }
 }
