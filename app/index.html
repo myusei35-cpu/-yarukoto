@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-08-01">
+<meta name="yk-ver" content="2026-11-12-01">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -66,6 +66,12 @@
   input[type=text],input[type=date],input[type=time],input[type=datetime-local],textarea,select{
     width:100%; font-size:21px; padding:12px; border-radius:12px; border:2px solid var(--line); background:var(--card); color:var(--ink)}
   textarea{min-height:84px}
+  .pickWrap{position:relative; flex:1}
+  .pickBtn{width:100%; text-align:left; font-size:21px; padding:12px; border-radius:12px; border:2px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; font-weight:700}
+  .pickBtn .sub{color:var(--sub); font-weight:400}
+  .pickBtn:disabled{opacity:.45}
+  .pickHidden{position:absolute !important; left:8px; bottom:8px; width:1px !important; height:1px !important; opacity:0 !important; pointer-events:none !important; border:none !important; padding:0 !important}
+  .pickFallback{position:static !important; width:100% !important; height:auto !important; opacity:1 !important; pointer-events:auto !important; border:2px solid var(--line) !important; padding:12px !important}
   .btn{display:inline-block; padding:12px 20px; border-radius:999px; border:2px solid var(--line); background:var(--card); font-size:19px; font-weight:700; cursor:pointer; color:var(--ink)}
   .btn.primary{background:var(--orange); border-color:var(--orange); color:#fff}
   .btn.danger{color:var(--danger); border-color:var(--danger)}
@@ -139,7 +145,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-08-01</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-01</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -168,14 +174,14 @@
         <button class="btn small" onclick="quickDate('weekend')">週末（土）</button>
         <button class="btn small" onclick="quickDate('')">なし</button>
       </div>
-      <div style="display:flex; gap:8px"><input type="date" id="compDueDate"><input type="time" id="compDueTime"></div>
+      <div style="display:flex; gap:8px"><div class="pickWrap"><button type="button" class="pickBtn" id="compDueDateBtn" onclick="openPick_('compDueDate')">📅 <span id="compDueDateTxt"></span></button><input class="pickHidden" tabindex="-1" type="date" id="compDueDate"></div><div class="pickWrap"><button type="button" class="pickBtn" id="compDueTimeBtn" onclick="openPick_('compDueTime')">🕐 <span id="compDueTimeTxt"></span></button><input class="pickHidden" tabindex="-1" type="time" id="compDueTime"></div></div>
     </div>
-    <div class="row"><label>リマインダー（通知する日時）</label><input type="datetime-local" id="compRemind"></div>
+    <div class="row"><label>リマインダー（通知する日時）</label><div class="pickWrap"><button type="button" class="pickBtn" id="compRemindBtn" onclick="openPick_('compRemind')">🔔 <span id="compRemindTxt"></span></button><input class="pickHidden" tabindex="-1" type="datetime-local" id="compRemind"></div></div>
   </div>
   <div id="eventFields" class="hidden">
     <div class="row"><label>終日</label><input type="checkbox" id="compAllDay" onchange="toggleAllDay()"> 終日</div>
-    <div class="row"><label>開始</label><div style="display:flex; gap:8px"><input type="date" id="compStartDate"><input type="time" id="compStartTime"></div></div>
-    <div class="row"><label>終了</label><div style="display:flex; gap:8px"><input type="date" id="compEndDate"><input type="time" id="compEndTime"></div></div>
+    <div class="row"><label>開始</label><div style="display:flex; gap:8px"><div class="pickWrap"><button type="button" class="pickBtn" id="compStartDateBtn" onclick="openPick_('compStartDate')">📅 <span id="compStartDateTxt"></span></button><input class="pickHidden" tabindex="-1" type="date" id="compStartDate"></div><div class="pickWrap"><button type="button" class="pickBtn" id="compStartTimeBtn" onclick="openPick_('compStartTime')">🕐 <span id="compStartTimeTxt"></span></button><input class="pickHidden" tabindex="-1" type="time" id="compStartTime"></div></div></div>
+    <div class="row"><label>終了</label><div style="display:flex; gap:8px"><div class="pickWrap"><button type="button" class="pickBtn" id="compEndDateBtn" onclick="openPick_('compEndDate')">📅 <span id="compEndDateTxt"></span></button><input class="pickHidden" tabindex="-1" type="date" id="compEndDate"></div><div class="pickWrap"><button type="button" class="pickBtn" id="compEndTimeBtn" onclick="openPick_('compEndTime')">🕐 <span id="compEndTimeTxt"></span></button><input class="pickHidden" tabindex="-1" type="time" id="compEndTime"></div></div></div>
     <div class="row"><label>場所</label><input type="text" id="compLocation"></div>
   </div>
   <div class="row"><label>メモ・URL</label><textarea id="compMemo"></textarea></div>
@@ -197,9 +203,9 @@
       <button class="btn small" onclick="dQuick('weekend')">週末（土）</button>
       <button class="btn small" onclick="dQuick('')">なし</button>
     </div>
-    <div style="display:flex; gap:8px"><input type="date" id="dDueDate"><input type="time" id="dDueTime"></div>
+    <div style="display:flex; gap:8px"><div class="pickWrap"><button type="button" class="pickBtn" id="dDueDateBtn" onclick="openPick_('dDueDate')">📅 <span id="dDueDateTxt"></span></button><input class="pickHidden" tabindex="-1" type="date" id="dDueDate"></div><div class="pickWrap"><button type="button" class="pickBtn" id="dDueTimeBtn" onclick="openPick_('dDueTime')">🕐 <span id="dDueTimeTxt"></span></button><input class="pickHidden" tabindex="-1" type="time" id="dDueTime"></div></div>
   </div>
-  <div class="row"><label>リマインダー（通知する日時）</label><input type="datetime-local" id="dRemind"></div>
+  <div class="row"><label>リマインダー（通知する日時）</label><div class="pickWrap"><button type="button" class="pickBtn" id="dRemindBtn" onclick="openPick_('dRemind')">🔔 <span id="dRemindTxt"></span></button><input class="pickHidden" tabindex="-1" type="datetime-local" id="dRemind"></div></div>
   <div class="row"><label>ラベル</label><input type="text" id="dLabel"></div>
   <div class="row"><label>メモ・URL</label><textarea id="dMemo"></textarea></div>
   <div class="row"><label>写真</label>
@@ -510,6 +516,61 @@ function showView(v){
   $('fab').style.display = v==='list' ? 'block' : 'none';
 }
 
+
+/* ---------- date/time picker fields (visible value + native calendar) ---------- */
+const PICK_DEFS_ = {
+  compDueDate:{kind:'date', empty:'なし'}, compDueTime:{kind:'time', empty:'時刻なし'},
+  compRemind:{kind:'datetime', empty:'通知なし'},
+  compStartDate:{kind:'date', empty:'未設定'}, compStartTime:{kind:'time', empty:'時刻なし'},
+  compEndDate:{kind:'date', empty:'未設定'}, compEndTime:{kind:'time', empty:'時刻なし'},
+  dDueDate:{kind:'date', empty:'なし'}, dDueTime:{kind:'time', empty:'時刻なし'},
+  dRemind:{kind:'datetime', empty:'通知なし'},
+};
+function fmtDateJP_(v){
+  if(!v) return '';
+  const p = String(v).split('-'); if(p.length < 3) return v;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  const w = '日月火水木金土'[d.getDay()];
+  return (+p[0]) + '年' + (+p[1]) + '月' + (+p[2]) + '日（' + w + '）';
+}
+function syncPicks_(){
+  Object.keys(PICK_DEFS_).forEach(id => {
+    const el = $(id), txt = $(id + 'Txt'), btn = $(id + 'Btn');
+    if(!el || !txt) return;
+    const def = PICK_DEFS_[id], v = el.value || '';
+    let label = def.empty;
+    if(v){
+      if(def.kind === 'date') label = fmtDateJP_(v);
+      else if(def.kind === 'time') label = v;
+      else { const parts = v.split('T'); label = fmtDateJP_(parts[0]) + (parts[1] ? ' ' + parts[1] : ''); }
+    }
+    txt.textContent = label;
+    txt.classList.toggle('sub', !v);
+    if(btn) btn.disabled = !!el.disabled;
+  });
+}
+function openPick_(id){
+  const el = $(id); if(!el || el.disabled) return;
+  if(el.showPicker){ try { el.showPicker(); return; } catch(e){} }
+  el.classList.add('pickFallback');
+  el.focus(); try { el.click(); } catch(e){}
+}
+document.addEventListener('change', e => {
+  if(e.target && e.target.classList && e.target.classList.contains('pickHidden')){
+    e.target.classList.remove('pickFallback'); syncPicks_();
+  }
+});
+document.addEventListener('blur', e => {
+  if(e.target && e.target.classList && e.target.classList.contains('pickHidden')){
+    const t = e.target; setTimeout(() => t.classList.remove('pickFallback'), 400);
+  }
+}, true);
+/* memo textareas grow to show the whole text (no inner cut-off) */
+function autoMemo_(ta){ if(!ta || !ta.scrollHeight) return; ta.style.height = 'auto'; if(ta.scrollHeight) ta.style.height = (ta.scrollHeight + 6) + 'px'; }
+document.addEventListener('input', e => {
+  if(e.target && (e.target.id === 'dMemo' || e.target.id === 'compMemo')) autoMemo_(e.target);
+});
+
 /* ---------- composer ---------- */
 function avatarHtml(set){
   return (B.members||[]).map(m=>`<div class="ava ${set.has(m.email)?'sel':''}" data-email="${esc(m.email)}" onclick="toggleAva(this, '${esc(m.email)}')"><div class="face">${esc(m.avatar||'👤')}</div><div class="nm">${esc(m.display_name)}</div></div>`).join('');
@@ -526,6 +587,7 @@ function openComposer(){
   $('compTitle').value=''; $('compMemo').value='';
   $('compDueDate').value=''; $('compDueTime').value=''; $('compRemind').value='';
   $('compAva').innerHTML = avatarHtml(selAva);
+  syncPicks_(); autoMemo_($('compMemo'));
   $('composer').classList.add('open');
   pushUi_('composer');
   setTimeout(()=>$('compTitle').focus(), 100);
@@ -549,11 +611,11 @@ function quickTarget(kind){
   if(kind==='weekend'){ const add = (6 - d.getDay() + 7) % 7; d.setDate(d.getDate()+add); }
   return kind==='' ? '' : dateStr(d);
 }
-function quickDate(kind){ $('compDueDate').value = quickTarget(kind); }
-function dQuick(kind){ $('dDueDate').value = quickTarget(kind); $('dDueTime').value = kind==='' ? '' : $('dDueTime').value; }
+function quickDate(kind){ $('compDueDate').value = quickTarget(kind); syncPicks_(); }
+function dQuick(kind){ $('dDueDate').value = quickTarget(kind); $('dDueTime').value = kind==='' ? '' : $('dDueTime').value; syncPicks_(); }
 function toggleAllDay(){
   const a = $('compAllDay').checked;
-  $('compStartTime').disabled = a; $('compEndTime').disabled = a;
+  $('compStartTime').disabled = a; $('compEndTime').disabled = a; syncPicks_();
 }
 async function submitComposer(){
   const title = $('compTitle').value.trim();
@@ -621,6 +683,7 @@ function fillDetailCore_(t){
   $('dRemind').value = t.remind_at ? String(t.remind_at).replace(' ', 'T').slice(0,16) : '';
   $('dLabel').value = t.label || '';
   $('dMemo').value = t.memo || '';
+  syncPicks_(); autoMemo_($('dMemo'));
   dSelAva = new Set(String(t.assignees||'').split(',').filter(Boolean));
   $('dAva').innerHTML = avatarHtml(dSelAva);
   $('photoTodoId').value = t.id;
@@ -636,6 +699,7 @@ async function openDetail(id){
     $('dSubs').innerHTML = '<div style="color:var(--sub)">読み込み中…</div>';
     $('dComments').innerHTML = '<div style="color:var(--sub)">読み込み中…</div>';
     $('detail').classList.add('open');
+    requestAnimationFrame(() => { autoMemo_($('dMemo')); syncPicks_(); });
     pushUi_('detail');
     if(base) base.unread = false;
   }
