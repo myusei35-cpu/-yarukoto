@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-11"><!-- build 2026-11-12-11 -->
+<meta name="yk-ver" content="2026-11-12-12"><!-- build 2026-11-12-12 -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -58,7 +58,10 @@
   nav button{flex:1; background:none; border:none; padding:12px 0 16px; font-size:17px; font-weight:700; color:var(--sub); cursor:pointer}
   nav button.on{color:var(--orange-d)}
   /* sheets / detail */
-  #ptr{position:fixed; top:8px; left:50%; transform:translate(-50%,-76px); background:#fff; border:1.5px solid var(--line); border-radius:999px; padding:8px 18px; font-size:16px; font-weight:700; box-shadow:0 4px 14px rgba(0,0,0,.14); z-index:15; pointer-events:none; opacity:0; white-space:nowrap}
+  #ptr{position:fixed; top:6px; left:50%; transform:translate(-50%,-64px); width:44px; height:44px; border-radius:50%; background:#fff; box-shadow:0 3px 10px rgba(0,0,0,.35); z-index:15; pointer-events:none; opacity:0; display:flex; align-items:center; justify-content:center}
+  #ptrSpin{width:23px; height:23px; border-radius:50%; border:3px solid rgba(0,0,0,.14); border-top-color:#F59E0B}
+  #ptrSpin.spin{animation:ptrspin .75s linear infinite}
+  @keyframes ptrspin{to{transform:rotate(360deg)}}
   .sheet{position:fixed; inset:0; z-index:20; background:var(--bg); overflow-y:auto; padding:16px 14px 40px; display:none}
   .sheet.open{display:block}
   .sheet h2{font-size:22px; margin:4px 0 14px}
@@ -135,7 +138,7 @@
   <div id="pickerList"></div>
 </div>
 <header id="appHeader">やること <span class="me" id="meLabel"></span><button class="btn small" id="feedBtn" onclick="openFeed()">🔔 新着<span id="feedBadge" class="hidden">0</span></button></header>
-<div id="ptr"><span id="ptrTxt">引っ張って更新</span></div>
+<div id="ptr"><div id="ptrSpin"></div></div>
 <div id="view-list">
   <div id="sortBar"><span style="font-size:15px; color:var(--sub); font-weight:700">並び順</span><button class="btn small" id="smDefault" onclick="setSortMode('default')">デフォルト</button><button class="btn small" id="smCustom" onclick="setSortMode('custom')">並び替え順</button><span style="flex:1"></span><button class="btn small" onclick="openReorder()">⇅ 並び替え</button></div>
   <div class="chips" id="chipsRow"></div>
@@ -161,7 +164,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-11</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-12</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -708,12 +711,13 @@ async function submitComposer(){
 
 /* ---------- pull to refresh ---------- */
 let ptrState = null;
-function ptrSet_(h, snap, txt){
+function ptrSet_(h, snap){
   const el = $('ptr'); if(!el) return;
   el.style.transition = snap ? 'transform .25s, opacity .25s' : 'none';
-  el.style.transform = 'translate(-50%,' + (-76 + h) + 'px)';
+  el.style.transform = 'translate(-50%,' + (-64 + h) + 'px)';
   el.style.opacity = h > 4 ? '1' : '0';
-  if(txt) $('ptrTxt').textContent = txt;
+  const sp = $('ptrSpin');
+  if(sp && !sp.classList.contains('spin')) sp.style.transform = 'rotate(' + (h * 3) + 'deg)';
 }
 document.addEventListener('touchstart', e => {
   if(e.touches.length !== 1 || !e.target.closest){ ptrState = null; return; }
@@ -733,8 +737,7 @@ document.addEventListener('touchmove', e => {
   }
   ptrState.on = true; ptrState.dy = dy;
   if(e.cancelable) e.preventDefault();
-  const h = Math.min(dy * 0.5, 84);
-  ptrSet_(h, false, h >= 54 ? '離して更新' : '引っ張って更新');
+  ptrSet_(Math.min(dy * 0.5, 84), false);
 }, { passive: false });
 document.addEventListener('touchend', async () => {
   if(!ptrState) return;
@@ -742,10 +745,12 @@ document.addEventListener('touchend', async () => {
   const wasOn = ptrState.on; ptrState = null;
   if(!wasOn) return;
   if(!go){ ptrSet_(0, true); return; }
-  ptrSet_(70, true, '更新中…');
+  const sp = $('ptrSpin');
+  if(sp){ sp.style.transform = ''; sp.classList.add('spin'); }
+  ptrSet_(62, true);
   try { await load(); } catch(e){}
-  ptrSet_(70, true, '更新しました');
-  setTimeout(() => ptrSet_(0, true), 650);
+  if(sp) sp.classList.remove('spin');
+  setTimeout(() => ptrSet_(0, true), 200);
 });
 
 /* ---------- ntfy push (sent from this app; no server scope needed) ---------- */
