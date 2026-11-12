@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-08"><!-- build 2026-11-12-08 -->
+<meta name="yk-ver" content="2026-11-12-09"><!-- build 2026-11-12-09 -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -159,7 +159,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-08</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-09</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -308,10 +308,12 @@ function fmtDue(t){
   return s;
 }
 function memberName(email){ const m = (B.members||[]).find(m=>m.email===email); return m ? m.display_name : email; }
+function sanLabel_(n){ return /(ちゃん|くん|さん|さま)$/.test(n || '') ? n : (n + ' さん'); }
+function actorPhrase_(email){ const n = memberName(email); return /(ちゃん|くん|さん|さま)$/.test(n || '') ? n + 'が' : n + 'さんが'; }
 
 function applyB(){
   if(!curCat && B.categories.length) curCat = [...B.categories].sort((a,z)=>a.sort-z.sort)[0].id;
-  $('meLabel').textContent = memberName(ID || B.me) + ' さん';
+  $('meLabel').textContent = sanLabel_(memberName(ID || B.me));
   $('whoNow').textContent = memberName(ID || B.me);
   render();
 }
@@ -717,13 +719,13 @@ function feedEvents_(){
   const evs = [];
   (B.todos || []).forEach(t => {
     if(t.created_by && t.created_by !== me && t.created_at){
-      evs.push({ ts: String(t.created_at), todoId: t.id, what: memberName(t.created_by) + 'さんが「' + (t.title || '') + '」を追加しました' });
+      evs.push({ ts: String(t.created_at), todoId: t.id, what: actorPhrase_(t.created_by) + '「' + (t.title || '') + '」を追加しました' });
     }
     const upd = String(t.updated_at || ''), cre = String(t.created_at || '');
     if(t.updated_by && t.updated_by !== me && upd && upd > cre){
       const nearComment = (commentTimes[t.id] || []).some(ct => Math.abs(new Date(ct) - new Date(upd)) < 180000);
       if(!nearComment){
-        evs.push({ ts: upd, todoId: t.id, what: memberName(t.updated_by) + 'さんが「' + (t.title || '') + '」を更新しました' });
+        evs.push({ ts: upd, todoId: t.id, what: actorPhrase_(t.updated_by) + '「' + (t.title || '') + '」を更新しました' });
       }
     }
   });
@@ -732,7 +734,7 @@ function feedEvents_(){
       const t = todoById[c.todo_id];
       const txt = String(c.text || '');
       evs.push({ ts: String(c.created_at || ''), todoId: c.todo_id,
-        what: memberName(c.author_email) + 'さんが「' + (t ? t.title : '') + '」にコメント：' + (txt.length > 60 ? txt.slice(0, 60) + '…' : txt) });
+        what: actorPhrase_(c.author_email) + '「' + (t ? t.title : '') + '」にコメント：' + (txt.length > 60 ? txt.slice(0, 60) + '…' : txt) });
     }
   });
   return evs.filter(e => e.ts).sort((a, z) => a.ts < z.ts ? 1 : -1);
