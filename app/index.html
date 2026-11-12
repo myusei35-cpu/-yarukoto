@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-09"><!-- build 2026-11-12-09 -->
+<meta name="yk-ver" content="2026-11-12-10"><!-- build 2026-11-12-10 -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -159,7 +159,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-09</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-10</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -481,6 +481,7 @@ async function toggleDone(id, done){
   renderBoard(); renderAgenda();
   try { await run('setDone', id, !!done, ID); saveCache_(); }
   catch(e){ t.done = prev; renderBoard(); renderAgenda(); toast('保存に失敗しました'); return; }
+  if(done) notifyNtfy_(actorPhrase_(ID) + '「' + t.title + '」を完了しました');
   load().catch(()=>{});
 }
 
@@ -677,6 +678,8 @@ async function submitComposer(){
     run('addTodo', payload).then(real => {
       const t = B.todos.find(x => x.id === tmpId);
       if(t && real && real.id){ t.id = real.id; }
+      const dueTxt = payload.due_date ? ('\n期限：' + payload.due_date + (payload.due_time ? ' ' + payload.due_time : '')) : '';
+      notifyNtfy_(actorPhrase_(ID) + '「' + title + '」を追加しました。' + dueTxt + (payload.memo ? '\nメモ：' + payload.memo : ''));
       try { localStorage.setItem('yk_cache', JSON.stringify(B)); } catch(e){}
     }).catch(() => {
       B.todos = B.todos.filter(x => x.id !== tmpId);
@@ -692,6 +695,7 @@ async function submitComposer(){
         location: $('compLocation').value, memo: $('compMemo').value, assignees: [...selAva], by: ID,
       });
     } catch(e){ toast('追加に失敗しました。通信を確認してください'); return; }
+    notifyNtfy_(actorPhrase_(ID) + '「' + title + '」を追加しました。');
     requestClose_('composer');
     await load(); toast('追加しました');
   }
@@ -699,6 +703,19 @@ async function submitComposer(){
 
 
 
+
+/* ---------- ntfy push (sent from this app; no server scope needed) ---------- */
+function notifyNtfy_(message){
+  try {
+    const topics = (B && B.ntfyTopics) || {};
+    (B.members || []).map(m => m.email).filter(e => e && e !== ID).forEach(e => {
+      const topic = topics[e];
+      if(!topic) return;
+      fetch('https://ntfy.sh/', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, title: 'やること共有', message, click: location.origin + location.pathname, priority: 4, tags: ['bell'] }) }).catch(() => {});
+    });
+  } catch(e){}
+}
 
 /* ---------- activity feed (partner's actions, in words) ---------- */
 function feedSeenTs_(){
@@ -962,7 +979,9 @@ async function toggleSub(id, done){ await run('setSubtaskDone', id, !!done, ID);
 async function delSub(id){ await run('deleteSubtask', id, ID); openDetail(curTodo.id); }
 async function addComment(){
   const v = $('newComment').value.trim(); if(!v) return;
-  await run('addComment', curTodo.id, v, ID); $('newComment').value=''; openDetail(curTodo.id);
+  await run('addComment', curTodo.id, v, ID); $('newComment').value='';
+  notifyNtfy_(actorPhrase_(ID) + '「' + (curTodo.title || '') + '」にコメントしました。\n\n' + v);
+  openDetail(curTodo.id);
 }
 function uploadPhoto(){
   const inp = $('photoInput');
