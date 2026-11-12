@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-03">
+<meta name="yk-ver" content="2026-11-12-04">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -154,7 +154,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-03</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-04</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -177,7 +177,7 @@
 <div class="sheet" id="reorder">
   <div class="topbar"><button class="back" onclick="closeReorder()">‹</button><h2 style="margin:0">並び替え</h2></div>
   <div style="font-size:15px; color:var(--sub); margin-bottom:10px"><span id="reCatName" style="font-weight:700; color:var(--ink)"></span> の未完了の項目です。↑↓で動かせます。保存すると、相手のスマホでも同じ順番になります。</div>
-  <div id="reNotice" class="hidden" style="font-size:15px; color:var(--danger); margin-bottom:10px">サーバー側の更新がまだ反映されていないため、今は保存できません。</div>
+  <div id="reNotice" class="hidden" style="font-size:15px; color:var(--danger); margin-bottom:10px">保存するには、サーバー側の更新が1回だけ必要です。それが済むまでは、並び替えの保存だけ止まっています（他の機能は今まで通り使えます）。</div>
   <button class="btn small" style="margin-bottom:12px" onclick="reGroupByArea_()">近い場所を寄せる（仮並び）</button>
   <div id="reList"></div>
   <div class="row" style="display:flex; gap:10px; margin-top:16px">
