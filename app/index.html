@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-02">
+<meta name="yk-ver" content="2026-11-12-03">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -79,6 +79,11 @@
   .btn.small.on{background:var(--orange); border-color:var(--orange); color:#fff}
   #sortBar{display:flex; gap:8px; align-items:center; padding:8px 14px 0}
   #sortBar .btn.small{font-size:15px; padding:7px 12px}
+  #feedBtn{float:right; font-size:16px; padding:7px 13px}
+  #feedBadge{background:var(--danger); color:#fff; border-radius:999px; padding:1px 8px; font-size:14px; margin-left:5px}
+  .feedRow{padding:12px 2px; border-bottom:1px solid var(--line); cursor:pointer}
+  .feedRow .when{font-size:14px; color:var(--sub); margin-top:3px}
+  .feedRow.isNew .what{font-weight:800}
   .quick{display:flex; gap:8px; flex-wrap:wrap}
   .avatars{display:flex; gap:10px; flex-wrap:wrap}
   .ava{text-align:center; cursor:pointer; opacity:.45}
@@ -123,7 +128,7 @@
   <p>あなたはだれですか？（この機械では1回だけ聞きます）</p>
   <div id="pickerList"></div>
 </div>
-<header id="appHeader">やること <span class="me" id="meLabel"></span></header>
+<header id="appHeader">やること <span class="me" id="meLabel"></span><button class="btn small" id="feedBtn" onclick="openFeed()">🔔 新着<span id="feedBadge" class="hidden">0</span></button></header>
 <div id="view-list">
   <div id="sortBar"><span style="font-size:15px; color:var(--sub); font-weight:700">並び順</span><button class="btn small" id="smDefault" onclick="setSortMode('default')">デフォルト</button><button class="btn small" id="smCustom" onclick="setSortMode('custom')">並び替え順</button><span style="flex:1"></span><button class="btn small" onclick="openReorder()">⇅ 並び替え</button></div>
   <div class="chips" id="chipsRow"></div>
@@ -149,7 +154,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-02</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-03</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -160,6 +165,13 @@
   <button id="nav-set" onclick="showView('set')">設定</button>
 </nav>
 <div id="toast"></div>
+
+<!-- feed -->
+<div class="sheet" id="feed">
+  <div class="topbar"><button class="back" onclick="closeFeed()">‹</button><h2 style="margin:0">新着</h2></div>
+  <div style="font-size:15px; color:var(--sub); margin-bottom:6px">相手が追加・コメント・更新したものです。タップするとその項目が開きます。</div>
+  <div id="feedList"></div>
+</div>
 
 <!-- reorder -->
 <div class="sheet" id="reorder">
@@ -322,7 +334,7 @@ async function pickMe(email){
   await load();
 }
 function switchUser(){ localStorage.removeItem('yk_me'); ID=''; showPicker(); }
-function render(){ renderBoard(); renderAgenda(); renderSettings(); }
+function render(){ renderBoard(); renderAgenda(); renderSettings(); updateFeedBadge_(); }
 
 function chipsHtml(activeId){
   const cats = [...B.categories].sort((a,z)=>a.sort-z.sort);
@@ -680,6 +692,78 @@ async function submitComposer(){
 }
 
 
+
+/* ---------- activity feed (partner's actions, in words) ---------- */
+function feedSeenTs_(){
+  let v = Number(localStorage.getItem('yk_feed_seen') || 0);
+  if(!v){ v = Date.now(); try { localStorage.setItem('yk_feed_seen', String(v)); } catch(e){} }
+  return v;
+}
+function feedEvents_(){
+  if(!B) return [];
+  const me = ID || B.me;
+  const todoById = {};
+  (B.todos || []).forEach(t => { todoById[t.id] = t; });
+  const commentTimes = {};
+  (B.comments || []).forEach(c => {
+    if(!commentTimes[c.todo_id]) commentTimes[c.todo_id] = [];
+    commentTimes[c.todo_id].push(String(c.created_at || ''));
+  });
+  const evs = [];
+  (B.todos || []).forEach(t => {
+    if(t.created_by && t.created_by !== me && t.created_at){
+      evs.push({ ts: String(t.created_at), todoId: t.id, what: memberName(t.created_by) + 'さんが「' + (t.title || '') + '」を追加しました' });
+    }
+    const upd = String(t.updated_at || ''), cre = String(t.created_at || '');
+    if(t.updated_by && t.updated_by !== me && upd && upd > cre){
+      const nearComment = (commentTimes[t.id] || []).some(ct => Math.abs(new Date(ct) - new Date(upd)) < 180000);
+      if(!nearComment){
+        evs.push({ ts: upd, todoId: t.id, what: memberName(t.updated_by) + 'さんが「' + (t.title || '') + '」を更新しました' });
+      }
+    }
+  });
+  (B.comments || []).forEach(c => {
+    if(c.author_email && c.author_email !== me){
+      const t = todoById[c.todo_id];
+      const txt = String(c.text || '');
+      evs.push({ ts: String(c.created_at || ''), todoId: c.todo_id,
+        what: memberName(c.author_email) + 'さんが「' + (t ? t.title : '') + '」にコメント：' + (txt.length > 60 ? txt.slice(0, 60) + '…' : txt) });
+    }
+  });
+  return evs.filter(e => e.ts).sort((a, z) => a.ts < z.ts ? 1 : -1);
+}
+function fmtWhen_(ts){
+  const d = new Date(ts);
+  if(isNaN(d)) return '';
+  const w = '日月火水木金土'[d.getDay()];
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日（' + w + '）' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function updateFeedBadge_(){
+  const b = $('feedBadge');
+  if(!b || !B) return;
+  const seen = feedSeenTs_();
+  const n = feedEvents_().filter(e => new Date(e.ts).getTime() > seen).length;
+  b.textContent = n;
+  b.classList.toggle('hidden', n === 0);
+}
+function openFeed(){
+  const seen = feedSeenTs_();
+  const evs = feedEvents_().slice(0, 50);
+  $('feedList').innerHTML = evs.length ? evs.map(e =>
+    `<div class="feedRow ${new Date(e.ts).getTime() > seen ? 'isNew' : ''}" onclick="feedJump_('${e.todoId}')">`
+    + `<div class="what">${esc(e.what)}</div><div class="when">${esc(fmtWhen_(e.ts))}</div></div>`
+  ).join('') : '<div class="empty">まだ何もありません</div>';
+  $('feed').classList.add('open');
+  pushUi_('feed');
+  try { localStorage.setItem('yk_feed_seen', String(Date.now())); } catch(e){}
+  updateFeedBadge_();
+}
+function closeFeed(){ requestClose_('feed'); }
+function feedJump_(todoId){
+  requestClose_('feed');
+  setTimeout(() => openDetail(todoId), 60);
+}
+
 /* ---------- sort mode + manual reorder ---------- */
 let sortMode = localStorage.getItem('yk_sortmode') || 'default';
 function setSortMode(m){
@@ -778,6 +862,7 @@ function closeLayerUi_(id){
   if(id==='detail'){ $('detail').classList.remove('open'); curTodo = null; load(); }
   if(id==='composer'){ $('composer').classList.remove('open'); }
   if(id==='reorder'){ $('reorder').classList.remove('open'); }
+  if(id==='feed'){ $('feed').classList.remove('open'); }
 }
 function requestClose_(id){
   const i = uiLayers.lastIndexOf(id);
