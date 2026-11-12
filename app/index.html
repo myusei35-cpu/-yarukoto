@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-06">
+<meta name="yk-ver" content="2026-11-12-07">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -77,12 +77,13 @@
   .btn.danger{color:var(--danger); border-color:var(--danger)}
   .btn.small{padding:8px 14px; font-size:16px}
   .btn.small.on{background:var(--orange); border-color:var(--orange); color:#fff}
-  #sortBar{display:flex; gap:8px; align-items:center; padding:8px 14px 0; flex-wrap:wrap}
+  #sortBar{display:flex; gap:6px; align-items:center; padding:8px 10px 0; flex-wrap:nowrap}
+  #sortBar>span:first-child{font-size:13px; white-space:nowrap}
 .rrow{display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line)}
 .rrow .ttl{flex:1; font-weight:700; font-size:17px}
 .dragH{touch-action:none; cursor:grab; font-size:22px; line-height:1; padding:10px 16px; color:var(--sub); user-select:none; -webkit-user-select:none; border:1px solid var(--line); border-radius:12px; background:var(--card)}
 .rrow.dragging{background:var(--card); box-shadow:0 10px 26px rgba(0,0,0,.5); border-radius:12px; opacity:.96}
-  #sortBar .btn.small{font-size:15px; padding:7px 12px}
+  #sortBar .btn.small{font-size:13px; padding:6px 9px; white-space:nowrap}
   #feedBtn{float:right; font-size:16px; padding:7px 13px}
   #feedBadge{background:var(--danger); color:#fff; border-radius:999px; padding:1px 8px; font-size:14px; margin-left:5px}
   .feedRow{padding:12px 2px; border-bottom:1px solid var(--line); cursor:pointer}
@@ -158,7 +159,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-06</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-07</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
