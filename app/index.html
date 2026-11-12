@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-05">
+<meta name="yk-ver" content="2026-11-12-06">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -78,6 +78,10 @@
   .btn.small{padding:8px 14px; font-size:16px}
   .btn.small.on{background:var(--orange); border-color:var(--orange); color:#fff}
   #sortBar{display:flex; gap:8px; align-items:center; padding:8px 14px 0; flex-wrap:wrap}
+.rrow{display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line)}
+.rrow .ttl{flex:1; font-weight:700; font-size:17px}
+.dragH{touch-action:none; cursor:grab; font-size:22px; line-height:1; padding:10px 16px; color:var(--sub); user-select:none; -webkit-user-select:none; border:1px solid var(--line); border-radius:12px; background:var(--card)}
+.rrow.dragging{background:var(--card); box-shadow:0 10px 26px rgba(0,0,0,.5); border-radius:12px; opacity:.96}
   #sortBar .btn.small{font-size:15px; padding:7px 12px}
   #feedBtn{float:right; font-size:16px; padding:7px 13px}
   #feedBadge{background:var(--danger); color:#fff; border-radius:999px; padding:1px 8px; font-size:14px; margin-left:5px}
@@ -130,7 +134,7 @@
 </div>
 <header id="appHeader">やること <span class="me" id="meLabel"></span><button class="btn small" id="feedBtn" onclick="openFeed()">🔔 新着<span id="feedBadge" class="hidden">0</span></button></header>
 <div id="view-list">
-  <div id="sortBar"><span style="font-size:15px; color:var(--sub); font-weight:700">並び順</span><button class="btn small" id="smDefault" onclick="setSortMode('default')">デフォルト</button><button class="btn small" id="smCustom" onclick="setSortMode('custom')">並び替え順</button><button class="btn small" id="smNear" onclick="setSortMode('near')">近い順</button><button class="btn small" id="smFar" onclick="setSortMode('far')">遠い順</button><span style="flex:1"></span><button class="btn small" onclick="openReorder()">⇅ 並び替え</button></div>
+  <div id="sortBar"><span style="font-size:15px; color:var(--sub); font-weight:700">並び順</span><button class="btn small" id="smDefault" onclick="setSortMode('default')">デフォルト</button><button class="btn small" id="smCustom" onclick="setSortMode('custom')">並び替え順</button><span style="flex:1"></span><button class="btn small" onclick="openReorder()">⇅ 並び替え</button></div>
   <div class="chips" id="chipsRow"></div>
   <div id="canvas"></div>
 </div>
@@ -154,8 +158,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>自宅（近い順・遠い順の起点）</label><div id="homeNow" style="font-weight:700; margin-bottom:6px"></div><div style="display:flex; gap:8px"><input type="text" id="homePlace" placeholder="例：春日市／最寄りの駅名" style="flex:1"><button class="btn small" onclick="saveHome()">保存</button></div><div style="font-size:13px; color:var(--sub); margin-top:4px">住所そのものでなく、市区町村や駅名で十分です。1回入れれば相手のスマホでも同じ起点になります。</div></div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-05</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-06</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -177,9 +180,8 @@
 <!-- reorder -->
 <div class="sheet" id="reorder">
   <div class="topbar"><button class="back" onclick="closeReorder()">‹</button><h2 style="margin:0">並び替え</h2></div>
-  <div style="font-size:15px; color:var(--sub); margin-bottom:10px"><span id="reCatName" style="font-weight:700; color:var(--ink)"></span> の未完了の項目です。↑↓で動かせます。保存すると、相手のスマホでも同じ順番になります。</div>
+  <div style="font-size:15px; color:var(--sub); margin-bottom:10px"><span id="reCatName" style="font-weight:700; color:var(--ink)"></span> の未完了の項目です。右の「≡」を押さえたまま、上下に動かせます。保存すると、相手のスマホでも同じ順番になります。</div>
   <div id="reNotice" class="hidden" style="font-size:15px; color:var(--danger); margin-bottom:10px">保存するには、サーバー側の更新が1回だけ必要です。それが済むまでは、並び替えの保存だけ止まっています（他の機能は今まで通り使えます）。</div>
-  <button class="btn small" style="margin-bottom:12px" onclick="reGroupByArea_()">近い場所を寄せる（仮並び）</button>
   <div id="reList"></div>
   <div class="row" style="display:flex; gap:10px; margin-top:16px">
     <button class="btn primary" style="flex:1" id="reSaveBtn" onclick="saveReorder()">この順番で保存</button>
@@ -205,7 +207,6 @@
       </div>
       <div style="display:flex; gap:8px"><div class="pickWrap"><button type="button" class="pickBtn" id="compDueDateBtn" onclick="openPick_('compDueDate')">📅 <span id="compDueDateTxt"></span></button><input class="pickHidden" tabindex="-1" type="date" id="compDueDate"></div><div class="pickWrap"><button type="button" class="pickBtn" id="compDueTimeBtn" onclick="openPick_('compDueTime')">🕐 <span id="compDueTimeTxt"></span></button><input class="pickHidden" tabindex="-1" type="time" id="compDueTime"></div></div>
     </div>
-    <div class="row"><label>場所</label><input type="text" id="compPlace" placeholder="例：春日市／天神／店の名前と町名"></div>
     <div class="row"><label>リマインダー（通知する日時）</label><div class="pickWrap"><button type="button" class="pickBtn" id="compRemindBtn" onclick="openPick_('compRemind')">🔔 <span id="compRemindTxt"></span></button><input class="pickHidden" tabindex="-1" type="datetime-local" id="compRemind"></div></div>
   </div>
   <div id="eventFields" class="hidden">
@@ -237,7 +238,6 @@
   </div>
   <div class="row"><label>リマインダー（通知する日時）</label><div class="pickWrap"><button type="button" class="pickBtn" id="dRemindBtn" onclick="openPick_('dRemind')">🔔 <span id="dRemindTxt"></span></button><input class="pickHidden" tabindex="-1" type="datetime-local" id="dRemind"></div></div>
   <div class="row"><label>ラベル</label><input type="text" id="dLabel"></div>
-  <div class="row"><label>場所</label><input type="text" id="dPlace" placeholder="例：春日市／天神／店の名前と町名"><div id="dPlaceInfo" style="font-size:14px; color:var(--sub); margin-top:4px"></div></div>
   <div class="row"><label>メモ・URL</label><textarea id="dMemo"></textarea></div>
   <div class="row"><label>写真</label>
     <div class="photos" id="dPhotos"></div>
@@ -375,9 +375,8 @@ async function newCategory(){
 }
 function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-function cardHtml(t, done, dist){
+function cardHtml(t, done){
   const meta = [];
-  if(dist !== null && dist !== undefined) meta.push('📍約' + fmtDist_(dist));
   const due = fmtDue(t); if(due) meta.push('📅 ' + due);
   if(t.remind_at) meta.push('🔔');
   if(t.memo) meta.push('📝');
@@ -394,19 +393,6 @@ function cardHtml(t, done, dist){
 }
 function cardsHtml(catId){
   const items = B.todos.filter(t=>t.category_id===catId);
-  if(sortMode === 'near' || sortMode === 'far'){
-    const openItems = items.filter(t=>!Number(t.done));
-    const doneItems = items.filter(t=>Number(t.done)).sort((a,z)=>(Number(a.sort)||0)-(Number(z.sort)||0));
-    const withD = openItems.map(t=>({ t, d: todoDist_(t) })).filter(x=>x.d !== null)
-      .sort((a,z)=> sortMode === 'near' ? a.d - z.d : z.d - a.d);
-    const noD = openItems.filter(t=>todoDist_(t) === null)
-      .sort((a,z)=>(Number(a.sort)||0)-(Number(z.sort)||0));
-    let h = withD.length ? withD.map(x=>cardHtml(x.t, false, x.d)).join('') : '';
-    if(noD.length) h += '<div class="doneSec">場所が入っていないもの</div>' + noD.map(t=>cardHtml(t, false)).join('');
-    if(!withD.length && !noD.length) h = '<div class="empty">まだ何もありません。下の＋から追加できます</div>';
-    if(doneItems.length) h += '<div class="doneSec">完了タスク</div>' + doneItems.map(t=>cardHtml(t, true)).join('');
-    return h;
-  }
   const open = items.filter(t=>!Number(t.done)).sort((a,z)=>{
     if(sortMode === 'custom'){
       const as = Number(a.sort) || 0, zs = Number(z.sort) || 0;
@@ -510,7 +496,6 @@ function renderAgenda(){
 
 function renderSettings(){
   const al = $('apiLabel'); if(al) al.textContent = lastApi_;
-  const hn = $('homeNow'); if(hn){ const h = (B && B.home) || {}; hn.textContent = h.place ? ('今の自宅：' + h.place + (Number(h.lat) ? '' : '（座標が取れていません）')) : '未設定'; }
   $('memberList').innerHTML = (B.members||[]).map(m=>`<div class="subrow"><span>${esc(m.avatar||'👤')}</span><span style="flex:1">${esc(m.display_name)}</span><span style="color:var(--sub); font-size:14px">${esc(m.email)}</span></div>`).join('');
   $('catList').innerHTML = [...B.categories].sort((a,z)=>a.sort-z.sort).map(c=>`<div class="subrow"><span style="flex:1">${esc(c.name)}</span><button class="btn small" onclick="renameCat('${c.id}','${esc(c.name)}')">名前変更</button><button class="btn small" onclick="deleteCat('${c.id}','${esc(c.name)}')">削除</button></div>`).join('');
 }
@@ -637,7 +622,7 @@ function openComposer(){
   selAva = new Set();
   $('compCat').textContent = (B.categories.find(c=>c.id===curCat)||{}).name || '';
   $('compTitle').value=''; $('compMemo').value='';
-  $('compDueDate').value=''; $('compDueTime').value=''; $('compRemind').value=''; $('compPlace').value='';
+  $('compDueDate').value=''; $('compDueTime').value=''; $('compRemind').value='';
   $('compAva').innerHTML = avatarHtml(selAva);
   syncPicks_(); autoMemo_($('compMemo'));
   $('composer').classList.add('open');
@@ -677,18 +662,18 @@ async function submitComposer(){
       category_id: curCat, title,
       due_date: $('compDueDate').value, due_time: $('compDueTime').value,
       remind_at: $('compRemind').value ? $('compRemind').value.replace('T',' ') : '',
-      memo: $('compMemo').value, assignees: [...selAva], by: ID, place: $('compPlace').value.trim(),
+      memo: $('compMemo').value, assignees: [...selAva], by: ID,
     };
     const tmpId = 'tmp' + Date.now();
     B.todos.push({ id: tmpId, category_id: curCat, title, done: 0,
       due_date: payload.due_date, due_time: payload.due_time, remind_at: payload.remind_at,
-      memo: payload.memo, label: '', assignees: payload.assignees.join(','), sort: Date.now(), place: payload.place, lat: '', lng: '',
+      memo: payload.memo, label: '', assignees: payload.assignees.join(','), sort: Date.now(),
       calendar_event_id: '', created_by: ID, updated_by: ID, photoCount: 0, commentCount: 0, unread: 0 });
     requestClose_('composer');
     renderBoard(); toast('追加しました');
     run('addTodo', payload).then(real => {
       const t = B.todos.find(x => x.id === tmpId);
-      if(t && real && real.id){ t.id = real.id; if(real.place !== undefined){ t.place = real.place; t.lat = real.lat; t.lng = real.lng; } }
+      if(t && real && real.id){ t.id = real.id; }
       try { localStorage.setItem('yk_cache', JSON.stringify(B)); } catch(e){}
     }).catch(() => {
       B.todos = B.todos.filter(x => x.id !== tmpId);
@@ -711,56 +696,6 @@ async function submitComposer(){
 
 
 
-
-/* ---------- place / distance (home-based near & far) ---------- */
-function homeCoords_(){
-  const h = B && B.home;
-  if(!h) return null;
-  const la = Number(h.lat), ln = Number(h.lng);
-  return la && ln ? { lat: la, lng: ln } : null;
-}
-function distKm_(aLat, aLng, bLat, bLng){
-  const R = 6371, rad = x => x * Math.PI / 180;
-  const dLat = rad(bLat - aLat), dLng = rad(bLng - aLng);
-  const hh = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(hh));
-}
-function todoDist_(t){
-  const home = homeCoords_();
-  if(!home) return null;
-  const la = Number(t.lat), ln = Number(t.lng);
-  if(!la || !ln) return null;
-  return distKm_(home.lat, home.lng, la, ln);
-}
-function fmtDist_(d){ return d < 10 ? d.toFixed(1) + 'km' : Math.round(d) + 'km'; }
-function dPlaceInfo_(t){
-  const el = $('dPlaceInfo');
-  if(!el || !t) return;
-  if(!t.place){ el.textContent = ''; return; }
-  const d = todoDist_(t);
-  if(Number(t.lat) && Number(t.lng)){
-    el.textContent = '📍 座標あり' + (d !== null ? '（自宅から約' + fmtDist_(d) + '）' : '');
-  } else {
-    el.textContent = '場所は入っていますが、座標はまだ取れていません（保存すると取り直します）';
-  }
-}
-async function saveHome(){
-  const v = $('homePlace').value.trim();
-  if(!v) return toast('自宅の場所を入れてください');
-  toast('自宅を設定中…');
-  try {
-    const r = await run('setHomePlace', v);
-    if(!r || !r.geocoded){ toast('その場所が特定できませんでした。市区町村や駅名で入れてください'); return; }
-    if(!B.home) B.home = {};
-    B.home.place = r.place; B.home.lat = r.lat; B.home.lng = r.lng;
-    try { localStorage.setItem('yk_cache', JSON.stringify(B)); } catch(e){}
-    $('homePlace').value = '';
-    renderSettings();
-    toast('自宅を設定しました');
-  } catch(e){
-    toast('保存に失敗しました。サーバー側の更新がまだの可能性があります');
-  }
-}
 
 /* ---------- activity feed (partner's actions, in words) ---------- */
 function feedSeenTs_(){
@@ -835,26 +770,18 @@ function feedJump_(todoId){
 
 /* ---------- sort mode + manual reorder ---------- */
 let sortMode = localStorage.getItem('yk_sortmode') || 'default';
+if(sortMode !== 'custom') sortMode = 'default';
 function setSortMode(m){
-  if((m === 'near' || m === 'far') && !homeCoords_()){
-    toast('先に「設定」で自宅を入れてください');
-    showView('set');
-    return;
-  }
+  if(m !== 'custom') m = 'default';
   sortMode = m;
   try { localStorage.setItem('yk_sortmode', m); } catch(e){}
   syncSortBar_(); renderBoard();
 }
 function syncSortBar_(){
-  const map = { smDefault: 'default', smCustom: 'custom', smNear: 'near', smFar: 'far' };
-  Object.keys(map).forEach(id => { const el = $(id); if(el) el.classList.toggle('on', sortMode === map[id]); });
-}
-const AREA_WORDS_ = ['天神北','門司港','博多駅','関門海峡','福江島','長崎','佐世保','島原','諫早','大村','五島','天草','熊本','阿蘇','菊池','玉名','荒尾','八代','人吉','水俣','高千穂','宮崎','延岡','日向','都城','鹿児島','指宿','霧島','薩摩川内','大分','別府','湯布院','由布','中津','宇佐','日田','佐賀','有田','唐津','伊万里','武雄','嬉野','鳥栖','久留米','柳川','大牟田','八女','うきは','朝倉','飯塚','行橋','北九州','門司','小倉','中間','直方','田川','筑豊','宗像','福津','古賀','糸島','春日','大野城','太宰府','筑紫野','志免町','須恵町','篠栗','粕屋','大名','天神','博多','六本松','高砂','薬院','今泉','警固','赤坂','舞鶴','大濠','唐人町','箱崎','千代','吉塚','香椎','和白','西新','藤崎','室見','早良区','西区','東区','南区','中央区','城南区','博多区','早良','高取','原','次郎丸','下関','関門','北海道','札幌','沖縄','那覇','名護','神戸','大阪','京都','奈良','出雲','松江','島根','鳥取','米子','岡山','広島','山口','和歌山','白浜','長野','軽井沢','名古屋','栄','東京','横浜','静岡'];
-function areaKey_(t){
-  const txt = (t.title || '') + ' ' + (t.memo || '');
-  let best = '';
-  AREA_WORDS_.forEach(w => { if(txt.includes(w) && w.length > best.length) best = w; });
-  return best;
+  const d = $('smDefault'), c = $('smCustom');
+  if(!d || !c) return;
+  d.classList.toggle('on', sortMode === 'default');
+  c.classList.toggle('on', sortMode === 'custom');
 }
 let RE_ = [];
 let reBackendOk = null;
@@ -885,34 +812,50 @@ async function openReorder(){
 }
 function closeReorder(){ requestClose_('reorder'); }
 function renderReorder_(){
-  $('reList').innerHTML = RE_.map((id, i) => {
+  $('reList').innerHTML = RE_.map((id) => {
     const t = (B.todos || []).find(x => x.id === id);
     if(!t) return '';
-    return `<div class="subrow"><span style="flex:1; font-weight:700">${esc(t.title)}</span>`
-      + `<button class="btn small" ${i === 0 ? 'disabled style="opacity:.35"' : ''} onclick="reMove_(${i},-1)">↑</button>`
-      + `<button class="btn small" ${i === RE_.length - 1 ? 'disabled style="opacity:.35"' : ''} onclick="reMove_(${i},1)">↓</button></div>`;
+    return `<div class="rrow" data-id="${id}"><span class="ttl">${esc(t.title)}</span><span class="dragH" data-drag="1">≡</span></div>`;
   }).join('') || '<div class="empty">項目がありません</div>';
+  bindDrag_();
 }
-function reMove_(i, d){
-  const j = i + d;
-  if(j < 0 || j >= RE_.length) return;
-  const tmp = RE_[i]; RE_[i] = RE_[j]; RE_[j] = tmp;
-  renderReorder_();
+let dragCtx_ = null;
+function bindDrag_(){
+  document.querySelectorAll('#reList .dragH').forEach(h => h.addEventListener('pointerdown', dragStart_));
 }
-function reGroupByArea_(){
-  const groups = new Map(); const rest = [];
-  RE_.forEach(id => {
-    const t = (B.todos || []).find(x => x.id === id);
-    const k = t ? areaKey_(t) : '';
-    if(k){ if(!groups.has(k)) groups.set(k, []); groups.get(k).push(id); }
-    else rest.push(id);
-  });
-  const out = [];
-  groups.forEach(ids => out.push(...ids));
-  out.push(...rest);
-  RE_ = out;
+function dragStart_(e){
+  const row = e.target.closest('.rrow');
+  if(!row) return;
+  e.preventDefault();
+  const rows = [...document.querySelectorAll('#reList .rrow')];
+  dragCtx_ = { id: row.dataset.id, startIdx: rows.indexOf(row), startY: e.clientY, rowH: row.offsetHeight || 57, row, dy: 0 };
+  row.classList.add('dragging');
+  try { e.target.setPointerCapture(e.pointerId); } catch(err){}
+  e.target.addEventListener('pointermove', dragMove_);
+  e.target.addEventListener('pointerup', dragEnd_, { once: true });
+  e.target.addEventListener('pointercancel', dragEnd_, { once: true });
+}
+function dragMove_(e){
+  if(!dragCtx_) return;
+  const dy = e.clientY - dragCtx_.startY;
+  const maxUp = -dragCtx_.startIdx * dragCtx_.rowH;
+  const maxDown = (RE_.length - 1 - dragCtx_.startIdx) * dragCtx_.rowH;
+  dragCtx_.dy = Math.max(maxUp, Math.min(maxDown, dy));
+  dragCtx_.row.style.transform = 'translateY(' + dragCtx_.dy + 'px)';
+}
+function dragEnd_(e){
+  if(!dragCtx_) return;
+  const ctx = dragCtx_; dragCtx_ = null;
+  try { e.target.removeEventListener('pointermove', dragMove_); } catch(err){}
+  ctx.row.classList.remove('dragging');
+  ctx.row.style.transform = '';
+  const steps = Math.round(ctx.dy / ctx.rowH);
+  const to = Math.max(0, Math.min(RE_.length - 1, ctx.startIdx + steps));
+  if(to !== ctx.startIdx){
+    RE_.splice(ctx.startIdx, 1);
+    RE_.splice(to, 0, ctx.id);
+  }
   renderReorder_();
-  toast('場所ごとに寄せました。違うところは↑↓で直してください');
 }
 async function saveReorder(){
   if(reBackendOk === false){ toast('サーバー側の更新がまだです'); return; }
@@ -954,8 +897,6 @@ function fillDetailCore_(t){
   $('dDueTime').value = t.due_time || '';
   $('dRemind').value = t.remind_at ? String(t.remind_at).replace(' ', 'T').slice(0,16) : '';
   $('dLabel').value = t.label || '';
-  $('dPlace').value = t.place || '';
-  dPlaceInfo_(t);
   $('dMemo').value = t.memo || '';
   syncPicks_(); autoMemo_($('dMemo'));
   dSelAva = new Set(String(t.assignees||'').split(',').filter(Boolean));
@@ -995,11 +936,10 @@ async function saveDetail(){
   const fields = {
     title: $('dTitle').value.trim(), due_date: $('dDueDate').value, due_time: $('dDueTime').value,
     remind_at: $('dRemind').value ? $('dRemind').value.replace('T',' ') : '',
-    memo: $('dMemo').value, label: $('dLabel').value, assignees: [...dSelAva], by: ID, place: $('dPlace').value.trim(),
+    memo: $('dMemo').value, label: $('dLabel').value, assignees: [...dSelAva], by: ID,
   };
   const t = B.todos.find(x => x.id === curTodo.id);
   if(t){ t.title = fields.title; t.due_date = fields.due_date; t.due_time = fields.due_time;
-    if(fields.place !== t.place){ t.lat = ''; t.lng = ''; } t.place = fields.place;
     t.remind_at = fields.remind_at; t.memo = fields.memo; t.label = fields.label;
     t.assignees = fields.assignees.join(','); }
   const id = curTodo.id;
