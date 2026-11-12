@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="yk-ver" content="2026-11-12-01">
+<meta name="yk-ver" content="2026-11-12-02">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFDF8E">
@@ -76,6 +76,9 @@
   .btn.primary{background:var(--orange); border-color:var(--orange); color:#fff}
   .btn.danger{color:var(--danger); border-color:var(--danger)}
   .btn.small{padding:8px 14px; font-size:16px}
+  .btn.small.on{background:var(--orange); border-color:var(--orange); color:#fff}
+  #sortBar{display:flex; gap:8px; align-items:center; padding:8px 14px 0}
+  #sortBar .btn.small{font-size:15px; padding:7px 12px}
   .quick{display:flex; gap:8px; flex-wrap:wrap}
   .avatars{display:flex; gap:10px; flex-wrap:wrap}
   .ava{text-align:center; cursor:pointer; opacity:.45}
@@ -122,6 +125,7 @@
 </div>
 <header id="appHeader">やること <span class="me" id="meLabel"></span></header>
 <div id="view-list">
+  <div id="sortBar"><span style="font-size:15px; color:var(--sub); font-weight:700">並び順</span><button class="btn small" id="smDefault" onclick="setSortMode('default')">デフォルト</button><button class="btn small" id="smCustom" onclick="setSortMode('custom')">並び替え順</button><span style="flex:1"></span><button class="btn small" onclick="openReorder()">⇅ 並び替え</button></div>
   <div class="chips" id="chipsRow"></div>
   <div id="canvas"></div>
 </div>
@@ -145,7 +149,7 @@
     <div style="font-size:14px; color:var(--sub); margin-bottom:8px">カテゴリーごとのカレンダー作成・写真フォルダ・共有をまとめて行います。</div>
     <button class="btn small primary" onclick="runSetup()">セットアップを実行</button>
   </div>
-  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-01</span></div>
+  <div class="row"><label>バージョン</label><span id="verLabel" style="font-weight:700">2026-11-12-02</span></div>
   <div class="row"><label>最終通信</label><span id="apiLabel" style="font-weight:700">（まだ通信していません）</span></div>
 </div>
 
@@ -156,6 +160,18 @@
   <button id="nav-set" onclick="showView('set')">設定</button>
 </nav>
 <div id="toast"></div>
+
+<!-- reorder -->
+<div class="sheet" id="reorder">
+  <div class="topbar"><button class="back" onclick="closeReorder()">‹</button><h2 style="margin:0">並び替え</h2></div>
+  <div style="font-size:15px; color:var(--sub); margin-bottom:10px"><span id="reCatName" style="font-weight:700; color:var(--ink)"></span> の未完了の項目です。↑↓で動かせます。保存すると、相手のスマホでも同じ順番になります。</div>
+  <div id="reNotice" class="hidden" style="font-size:15px; color:var(--danger); margin-bottom:10px">サーバー側の更新がまだ反映されていないため、今は保存できません。</div>
+  <button class="btn small" style="margin-bottom:12px" onclick="reGroupByArea_()">近い場所を寄せる（仮並び）</button>
+  <div id="reList"></div>
+  <div class="row" style="display:flex; gap:10px; margin-top:16px">
+    <button class="btn primary" style="flex:1" id="reSaveBtn" onclick="saveReorder()">この順番で保存</button>
+  </div>
+</div>
 
 <!-- composer -->
 <div class="sheet" id="composer">
@@ -363,11 +379,16 @@ function cardHtml(t, done){
 function cardsHtml(catId){
   const items = B.todos.filter(t=>t.category_id===catId);
   const open = items.filter(t=>!Number(t.done)).sort((a,z)=>{
+    if(sortMode === 'custom'){
+      const as = Number(a.sort) || 0, zs = Number(z.sort) || 0;
+      if(as !== zs) return as - zs;
+      return String(a.id) < String(z.id) ? -1 : 1;
+    }
     const ad = a.due_date || '9999-99-99', zd = z.due_date || '9999-99-99';
     if(ad !== zd) return ad < zd ? -1 : 1;
     const at = a.due_time || '', zt = z.due_time || '';
     if(at !== zt) return at < zt ? -1 : 1;
-    return a.sort - z.sort;
+    return (Number(a.sort) || 0) - (Number(z.sort) || 0);
   });
   const done = items.filter(t=>Number(t.done)).sort((a,z)=>a.sort-z.sort);
   let h = open.length ? open.map(t=>cardHtml(t,false)).join('') : '<div class="empty">まだ何もありません。下の＋から追加できます</div>';
@@ -412,6 +433,7 @@ function renderBoard(){
   cacheBandTargets_();
   applyCat_(i);
   syncBand_();
+  syncSortBar_();
   if(!cv.dataset.bound){
     cv.dataset.bound = '1';
     let ticking = false;
@@ -657,12 +679,105 @@ async function submitComposer(){
   }
 }
 
+
+/* ---------- sort mode + manual reorder ---------- */
+let sortMode = localStorage.getItem('yk_sortmode') || 'default';
+function setSortMode(m){
+  sortMode = m;
+  try { localStorage.setItem('yk_sortmode', m); } catch(e){}
+  syncSortBar_(); renderBoard();
+}
+function syncSortBar_(){
+  const d = $('smDefault'), c = $('smCustom');
+  if(!d || !c) return;
+  d.classList.toggle('on', sortMode === 'default');
+  c.classList.toggle('on', sortMode === 'custom');
+}
+const AREA_WORDS_ = ['天神北','門司港','博多駅','関門海峡','福江島','長崎','佐世保','島原','諫早','大村','五島','天草','熊本','阿蘇','菊池','玉名','荒尾','八代','人吉','水俣','高千穂','宮崎','延岡','日向','都城','鹿児島','指宿','霧島','薩摩川内','大分','別府','湯布院','由布','中津','宇佐','日田','佐賀','有田','唐津','伊万里','武雄','嬉野','鳥栖','久留米','柳川','大牟田','八女','うきは','朝倉','飯塚','行橋','北九州','門司','小倉','中間','直方','田川','筑豊','宗像','福津','古賀','糸島','春日','大野城','太宰府','筑紫野','志免町','須恵町','篠栗','粕屋','大名','天神','博多','六本松','高砂','薬院','今泉','警固','赤坂','舞鶴','大濠','唐人町','箱崎','千代','吉塚','香椎','和白','西新','藤崎','室見','早良区','西区','東区','南区','中央区','城南区','博多区','早良','高取','原','次郎丸','下関','関門','北海道','札幌','沖縄','那覇','名護','神戸','大阪','京都','奈良','出雲','松江','島根','鳥取','米子','岡山','広島','山口','和歌山','白浜','長野','軽井沢','名古屋','栄','東京','横浜','静岡'];
+function areaKey_(t){
+  const txt = (t.title || '') + ' ' + (t.memo || '');
+  let best = '';
+  AREA_WORDS_.forEach(w => { if(txt.includes(w) && w.length > best.length) best = w; });
+  return best;
+}
+let RE_ = [];
+let reBackendOk = null;
+async function openReorder(){
+  const cat = (B.categories || []).find(c => c.id === curCat);
+  $('reCatName').textContent = cat ? cat.name : '';
+  RE_ = (B.todos || []).filter(t => t.category_id === curCat && !Number(t.done))
+    .sort((a, z) => {
+      const as = Number(a.sort) || 0, zs = Number(z.sort) || 0;
+      if(as !== zs) return as - zs;
+      const ad = a.due_date || '9999-99-99', zd = z.due_date || '9999-99-99';
+      if(ad !== zd) return ad < zd ? -1 : 1;
+      return String(a.id) < String(z.id) ? -1 : 1;
+    })
+    .map(t => t.id);
+  renderReorder_();
+  $('reNotice').classList.add('hidden');
+  $('reSaveBtn').disabled = false;
+  $('reorder').classList.add('open');
+  pushUi_('reorder');
+  reBackendOk = null;
+  try { await run('reorderTodos', []); reBackendOk = true; }
+  catch(e){
+    reBackendOk = false;
+    $('reNotice').classList.remove('hidden');
+    $('reSaveBtn').disabled = true;
+  }
+}
+function closeReorder(){ requestClose_('reorder'); }
+function renderReorder_(){
+  $('reList').innerHTML = RE_.map((id, i) => {
+    const t = (B.todos || []).find(x => x.id === id);
+    if(!t) return '';
+    return `<div class="subrow"><span style="flex:1; font-weight:700">${esc(t.title)}</span>`
+      + `<button class="btn small" ${i === 0 ? 'disabled style="opacity:.35"' : ''} onclick="reMove_(${i},-1)">↑</button>`
+      + `<button class="btn small" ${i === RE_.length - 1 ? 'disabled style="opacity:.35"' : ''} onclick="reMove_(${i},1)">↓</button></div>`;
+  }).join('') || '<div class="empty">項目がありません</div>';
+}
+function reMove_(i, d){
+  const j = i + d;
+  if(j < 0 || j >= RE_.length) return;
+  const tmp = RE_[i]; RE_[i] = RE_[j]; RE_[j] = tmp;
+  renderReorder_();
+}
+function reGroupByArea_(){
+  const groups = new Map(); const rest = [];
+  RE_.forEach(id => {
+    const t = (B.todos || []).find(x => x.id === id);
+    const k = t ? areaKey_(t) : '';
+    if(k){ if(!groups.has(k)) groups.set(k, []); groups.get(k).push(id); }
+    else rest.push(id);
+  });
+  const out = [];
+  groups.forEach(ids => out.push(...ids));
+  out.push(...rest);
+  RE_ = out;
+  renderReorder_();
+  toast('場所ごとに寄せました。違うところは↑↓で直してください');
+}
+async function saveReorder(){
+  if(reBackendOk === false){ toast('サーバー側の更新がまだです'); return; }
+  const ids = [...RE_];
+  ids.forEach((id, i) => { const t = (B.todos || []).find(x => x.id === id); if(t) t.sort = i + 1; });
+  sortMode = 'custom';
+  try { localStorage.setItem('yk_sortmode', 'custom'); } catch(e){}
+  requestClose_('reorder');
+  renderBoard();
+  toast('並び替えを保存しました');
+  try { await run('reorderTodos', ids); saveCache_(); }
+  catch(e){ load().catch(() => {}); toast('保存に失敗しました。通信を確認してください'); }
+}
+
 /* ---------- layered back-button handling ---------- */
 let uiLayers = [];
 function pushUi_(id){ uiLayers.push(id); try{ history.pushState({yk:id}, ''); }catch(e){} }
 function closeLayerUi_(id){
   if(id==='detail'){ $('detail').classList.remove('open'); curTodo = null; load(); }
   if(id==='composer'){ $('composer').classList.remove('open'); }
+  if(id==='reorder'){ $('reorder').classList.remove('open'); }
 }
 function requestClose_(id){
   const i = uiLayers.lastIndexOf(id);
